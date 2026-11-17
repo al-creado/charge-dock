@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.view.View
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -14,9 +15,17 @@ import androidx.webkit.WebViewAssetLoader
 object DockWebViewFactory {
     const val DOCK_URL = "https://appassets.androidplatform.net/assets/index.html"
 
-    /** [onPageLoaded] runs each time the page finishes loading. */
+    /** Tells the page whether the phone is in dark mode (for the Device theme setting). */
+    fun reportTheme(webView: WebView, uiMode: Int) {
+        webView.evaluateJavascript(ThemeJs.script(ThemeJs.isNight(uiMode)), null)
+    }
+
+    /**
+     * [onPageLoaded] runs each time the page finishes loading. [onExit] runs when the page asks to leave the
+     * dock. [onRenderGone] runs if Android kills the WebView's renderer process; the caller must rebuild or finish.
+     */
     @SuppressLint("SetJavaScriptEnabled")
-    fun create(context: Context, onPageLoaded: () -> Unit): WebView {
+    fun create(context: Context, onPageLoaded: () -> Unit, onExit: () -> Unit, onRenderGone: () -> Unit): WebView {
         val loader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
             .build()
@@ -45,11 +54,17 @@ object DockWebViewFactory {
                 ): Boolean = true
 
                 override fun onPageFinished(view: WebView, url: String) {
-                    val night = ThemeJs.isNight(view.context.resources.configuration.uiMode)
-                    view.evaluateJavascript(ThemeJs.script(night), null)
+                    reportTheme(view, view.context.resources.configuration.uiMode)
                     onPageLoaded()
                 }
+
+                // Without this, losing the renderer process kills the whole app.
+                override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                    onRenderGone()
+                    return true
+                }
             }
+            addJavascriptInterface(DockHost(onExit), "DockHost")
             loadUrl(DOCK_URL)
         }
     }

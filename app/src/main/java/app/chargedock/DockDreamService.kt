@@ -1,5 +1,6 @@
 package app.chargedock
 
+import android.content.res.Configuration
 import android.service.dreams.DreamService
 import android.webkit.WebView
 
@@ -12,11 +13,20 @@ class DockDreamService : DreamService() {
         super.onAttachedToWindow()
         isInteractive = true   // taps reach the page (Night, Dim, Settings)
         isFullscreen = true
-        val view = DockWebViewFactory.create(this) { feed?.onPageLoaded() }
-        view.setOnLongClickListener { finish(); true }
+        val view = DockWebViewFactory.create(
+            this,
+            onPageLoaded = { feed?.onPageLoaded() },
+            onExit = { finish() },
+            onRenderGone = { finish() },
+        )
         webView = view
         feed = BatteryFeed(this, view)
         setContentView(view)
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        webView?.let { DockWebViewFactory.reportTheme(it, newConfig.uiMode) }
     }
 
     override fun onDreamingStarted() {

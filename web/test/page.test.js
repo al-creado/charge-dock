@@ -9,7 +9,7 @@ test.before(async () => { browser = await chromium.launch({ executablePath: proc
 test.after(async () => { await browser.close(); });
 
 // Opens the page in a fresh context; collects errors and any non-file network requests.
-async function open({ width = 915, height = 412, time, settings, rawStorage } = {}) {
+async function open({ width = 915, height = 412, time, settings, rawStorage, init } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
   const page = await context.newPage();
   page.setDefaultTimeout(2000);
@@ -21,6 +21,7 @@ async function open({ width = 915, height = 412, time, settings, rawStorage } = 
     const value = rawStorage !== undefined ? rawStorage : JSON.stringify(settings);
     await context.addInitScript(v => { try { localStorage.setItem('charge-dock-settings', v); } catch (e) {} }, value);
   }
+  if (init) await context.addInitScript(init);
   if (time) await page.clock.install({ time });
   await page.goto(URL);
   await page.waitForLoadState('load');
@@ -543,5 +544,83 @@ test('night mode stays dark red on the light theme', async () => {
 test('pale accents are darkened on the light theme', async () => {
   const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), settings: { theme: 'light', accent: '#ffb25b' } });
   assert.notEqual(await accentVar(page), '#ffb25b');
+  await context.close();
+});
+
+// ---- findings from the whole-branch review ----
+
+test('the colon keeps blinking: its element survives the clock ticking', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15, 0) });
+  await page.evaluate(() => { window.__colon = document.querySelector('.colon'); });
+  await page.clock.runFor(3500);
+  assert.equal(await page.evaluate(() => window.__colon === document.querySelector('.colon')), true, 'same colon element after ticks');
+  await page.clock.runFor(60000);
+  assert.equal(await page.evaluate(() => window.__colon === document.querySelector('.colon')), true, 'same colon element after the minute changes');
+  assert.match(await page.textContent('#time'), /^12:16$/);
+  await context.close();
+});
+
+test('burn-in drift moves the whole dock, bottom bar included', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15, 0) });
+  assert.equal(await page.evaluate(() => document.getElementById('dock').style.transform), '');
+  await page.clock.runFor(125000);
+  assert.match(await page.evaluate(() => document.getElementById('dock').style.transform), /translate\(/);
+  assert.equal(await page.evaluate(() => document.getElementById('stage').style.transform), '');
+  await context.close();
+});
+
+const hostStub = () => { window.__exits = 0; window.DockHost = { exit() { window.__exits++; } }; };
+const exits = page => page.evaluate(() => window.__exits);
+const holdOn = async (page, selector, ms = 900) => {
+  const box = await page.locator(selector).boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.clock.runFor(ms);
+  await page.mouse.up();
+};
+
+test('a long press on the clock tile asks the app to leave, and does not toggle night mode', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: hostStub });
+  await holdOn(page, '.tile.clock');
+  assert.equal(await exits(page), 1);
+  assert.equal(await page.evaluate(() => document.body.classList.contains('red')), false);
+  await context.close();
+});
+
+test('a short tap on the clock tile toggles night mode and does not leave', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: hostStub });
+  await holdOn(page, '.tile.clock', 100);
+  assert.equal(await exits(page), 0);
+  assert.equal(await page.evaluate(() => document.body.classList.contains('red')), true);
+  await context.close();
+});
+
+test('holding a control in settings never leaves the dock', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: hostStub });
+  await page.click('#settingsBtn');
+  await page.click('#customSwatch');
+  await holdOn(page, '#customHex');
+  await holdOn(page, '#hue');
+  await holdOn(page, '#startPlus');
+  assert.equal(await exits(page), 0);
+  await context.close();
+});
+
+test('a long press does nothing and raises no error when there is no app around', async () => {
+  const { page, context, problems } = await open({ time: new Date(2026, 10, 17, 12, 15) });
+  await holdOn(page, '.tile.clock');
+  assert.deepEqual(problems, []);
+  await context.close();
+});
+
+test('once the app reports the theme, the browser media query is ignored', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), settings: { theme: 'system' } });
+  await page.evaluate(() => window.setSystemTheme(false));
+  assert.equal(await theme(page), 'light');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.waitForTimeout(300);
+  assert.equal(await theme(page), 'light');
+  await page.evaluate(() => window.setSystemTheme(true));
+  assert.equal(await theme(page), 'dark');
   await context.close();
 });

@@ -41,16 +41,17 @@
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
   button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-  .dock { height: 100%; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 2vmin; padding-block: 2.4vmin; transition: opacity .6s; }
+  .dock { height: 100%; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 2vmin; padding-block: 2.4vmin; transition: opacity .6s, transform 2s; }
   .dock.dim { opacity: var(--dim-opacity); }
 
-  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 3vmin; min-height: 0; transition: transform 2s; }
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 3vmin; min-height: 0; }
   @media (max-aspect-ratio: 1/1) { .stage { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); } }
 
   .tile.clock { justify-content: center; align-items: center; cursor: pointer; container-type: normal; }
   .time { font-family: var(--dot); font-weight: var(--dot-weight); font-variation-settings: "ROND" 100; font-size: calc(min(14.5vw, 32vh) * var(--time-scale) * var(--h12-scale)); line-height: 1; letter-spacing: -.035em; font-variant-numeric: tabular-nums; white-space: nowrap; }
   @media (max-aspect-ratio: 1/1) { .time { font-size: calc(min(31vw, 22vh) * var(--time-scale) * var(--h12-scale)); } }
   .colon { color: var(--accent); animation: pulse 2s steps(1) infinite; }
+  .ampm:empty { display: none; }
   .ampm { font-family: var(--font); font-weight: 400; font-size: .2em; letter-spacing: .05em; margin-left: .25em; color: var(--muted); }
   @keyframes pulse { 50% { opacity: .25; } }
   .date { margin-top: 1.6vmin; color: var(--muted); font-size: clamp(12px, 2.6vmin, 22px); font-weight: 400; letter-spacing: .12em; text-transform: uppercase; }
@@ -161,7 +162,7 @@
 <div class="dock" id="dock">
   <div class="stage" id="stage">
     <div class="clock tile">
-      <div class="time" id="time" aria-live="off">00:00</div>
+      <div class="time" id="time" aria-live="off"><span id="hh">00</span><span class="colon">:</span><span id="mm">00</span><span class="ampm" id="ampm"></span></div>
       <div class="date" id="date"></div>
     </div>
 
@@ -268,11 +269,14 @@
 
   let manual = null, lastNight = null, dayKey = '', customOpen = false;
 
+  // Only touch the DOM when the text changed, so the blinking colon is never re-created.
+  const setText = (id, text) => { const el = $(id); if (el.textContent !== text) el.textContent = text; };
+
   // ---- clock, date, week ----
   function tick() {
     const n = new Date();
     const t = DockLogic.formatTime(n, S.hour12);
-    $('time').innerHTML = t.hh + '<span class="colon">:</span>' + t.mm + (t.suffix ? '<span class="ampm">' + t.suffix + '</span>' : '');
+    setText('hh', t.hh); setText('mm', t.mm); setText('ampm', t.suffix);
     $('date').textContent = n.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
     const key = n.toDateString();
     if (key !== dayKey) {
@@ -286,13 +290,13 @@
   }
 
   // ---- theme: dark, light, or the phone's choice; accent adjusted so it stays visible ----
-  let systemDark = true;
+  let systemDark = true, systemFromApp = false;
   try {
     const mq = matchMedia('(prefers-color-scheme: dark)');
     systemDark = mq.matches;
-    mq.addEventListener('change', e => { systemDark = e.matches; applyDimming(); });
+    mq.addEventListener('change', e => { if (systemFromApp) return; systemDark = e.matches; applyDimming(); });
   } catch (e) {}
-  window.setSystemTheme = isDark => { systemDark = !!isDark; applyDimming(); };
+  window.setSystemTheme = isDark => { systemFromApp = true; systemDark = !!isDark; applyDimming(); };
   function paintTheme(resolved) {
     const root = document.documentElement;
     const shown = DockLogic.visibleAccent(S.accent, resolved);
@@ -392,7 +396,20 @@
   $('dimBtn').onclick = () => { manual = $('dimBtn').dataset.dim !== 'true'; applyDimming(); };
   const toggleRed = () => change(() => { S.red = !S.red; });
   $('redBtn').onclick = toggleRed;
-  document.querySelector('.tile.clock').onclick = toggleRed;
+  const clockTile = document.querySelector('.tile.clock');
+  let pressTimer = null, pressX = 0, pressY = 0, longPressed = false;
+  const cancelPress = () => { clearTimeout(pressTimer); pressTimer = null; };
+  clockTile.addEventListener('pointerdown', e => {
+    longPressed = false; pressX = e.clientX; pressY = e.clientY; cancelPress();
+    pressTimer = setTimeout(() => {
+      longPressed = true;
+      if (window.DockHost && typeof window.DockHost.exit === 'function') window.DockHost.exit();
+    }, 700);
+  });
+  clockTile.addEventListener('pointermove', e => { if (pressTimer && Math.hypot(e.clientX - pressX, e.clientY - pressY) > 12) cancelPress(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => clockTile.addEventListener(t, cancelPress));
+  clockTile.addEventListener('contextmenu', e => e.preventDefault());
+  clockTile.onclick = () => { if (longPressed) { longPressed = false; return; } toggleRed(); };
 
   // ---- pages: dots, arrow keys, swipe ----
   let page = 0;
@@ -431,9 +448,9 @@
   async function keepAwake() { try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch (e) {} }
   keepAwake(); document.addEventListener('visibilitychange', () => { if (!document.hidden) keepAwake(); });
 
-  // ---- burn-in protection: drift the layout a few pixels every 2 minutes ----
+  // ---- burn-in protection: drift the whole dock a few pixels every 2 minutes ----
   setInterval(() => {
-    $('stage').style.transform = 'translate(' + (Math.random() * 8 - 4).toFixed(1) + 'px,' + (Math.random() * 8 - 4).toFixed(1) + 'px)';
+    $('dock').style.transform = 'translate(' + (Math.random() * 12 - 6).toFixed(1) + 'px,' + (Math.random() * 12 - 6).toFixed(1) + 'px)';
   }, 120000);
 
   applySettings();
