@@ -414,3 +414,23 @@ for (const [w, h] of [[412, 915], [360, 800], [915, 412], [800, 360]]) {
     await context.close();
   });
 }
+
+test('custom colour button shows an edit icon, not a rainbow', async () => {
+  const { page, context } = await open();
+  await page.click('#settingsBtn');
+  assert.equal(await page.locator('#customSwatch svg').count(), 1, 'has an icon');
+  assert.doesNotMatch(await page.evaluate(() => getComputedStyle(document.getElementById('customSwatch')).backgroundImage), /conic|gradient/);
+  await context.close();
+});
+
+test('custom colour button takes on the chosen colour and keeps a readable icon', async () => {
+  const { page, context } = await open({ settings: { accent: '#3399ff' } });
+  await page.click('#settingsBtn');
+  const look = await page.evaluate(() => {
+    const s = getComputedStyle(document.getElementById('customSwatch'));
+    return { bg: s.backgroundColor, icon: s.color };
+  });
+  assert.equal(look.bg, 'rgb(51, 153, 255)');
+  assert.equal(look.icon, 'rgb(0, 0, 0)', 'black icon on a light blue');
+  await context.close();
+});
