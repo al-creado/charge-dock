@@ -5,7 +5,7 @@ import org.junit.Test
 
 class NotificationJsTest {
     @Test
-    fun emptyList() {
+    fun emptyListGivesAnEmptyArray() {
         assertEquals("window.setNotifications([])", NotificationJs.script(emptyList()))
     }
 
