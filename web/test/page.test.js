@@ -924,3 +924,36 @@ for (const [w, h] of [[412, 915], [360, 800], [915, 412]]) {
     await context.close();
   });
 }
+
+// ---- the week cards: text must sit exactly in the middle ----
+for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800]]) {
+  test(`this week text is centred in its cards at ${w}x${h}`, async () => {
+    const { page, context } = await open({ width: w, height: h, time: new Date(2026, 10, 17, 12, 15) });
+    await page.click('.dots [data-page="1"]');
+    await page.evaluate(() => document.fonts.ready);
+    await settled(page);
+    const cells = await page.evaluate(() => [...document.querySelectorAll('#week > div')].map(cell => {
+      const c = cell.getBoundingClientRect();
+      const label = getComputedStyle(cell.querySelector('.wl')).display !== 'none' ? cell.querySelector('.wl') : cell.querySelector('.wn');
+      const num = cell.querySelector('b');
+      const l = label.getBoundingClientRect(), n = num.getBoundingClientRect();
+      return {
+        cx: c.left + c.width / 2, labelCx: l.left + l.width / 2, numCx: n.left + n.width / 2,
+        padLeft: l.left - c.left, padRight: c.right - n.right, numLeft: n.left - c.left, numRight: c.right - n.right,
+        spacing: [getComputedStyle(label).letterSpacing, getComputedStyle(num).letterSpacing],
+      };
+    }));
+    const landscape = w > h;
+    for (const c of cells) {
+      assert.ok(c.spacing.every(v => v === '0px' || v === 'normal'), `no letter-spacing (it shifts text off-centre): ${c.spacing}`);
+      if (landscape) {
+        assert.ok(Math.abs(c.labelCx - c.cx) <= 1, `day letter centred (off by ${(c.labelCx - c.cx).toFixed(1)}px)`);
+        assert.ok(Math.abs(c.numCx - c.cx) <= 1, `date number centred (off by ${(c.numCx - c.cx).toFixed(1)}px)`);
+        assert.ok(c.numLeft >= 4 && c.numRight >= 4, `number keeps room at the edges (${c.numLeft.toFixed(1)} / ${c.numRight.toFixed(1)}px)`);
+      } else {
+        assert.ok(Math.abs(c.padLeft - c.padRight) <= 1, `row text has equal padding left and right (${c.padLeft.toFixed(1)} vs ${c.padRight.toFixed(1)})`);
+      }
+    }
+    await context.close();
+  });
+}
