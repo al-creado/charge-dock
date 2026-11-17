@@ -44,7 +44,11 @@ object DockWebViewFactory {
                     request: WebResourceRequest,
                 ): Boolean = true
 
-                override fun onPageFinished(view: WebView, url: String) = onPageLoaded()
+                override fun onPageFinished(view: WebView, url: String) {
+                    val night = ThemeJs.isNight(view.context.resources.configuration.uiMode)
+                    view.evaluateJavascript(ThemeJs.script(night), null)
+                    onPageLoaded()
+                }
             }
             loadUrl(DOCK_URL)
         }
