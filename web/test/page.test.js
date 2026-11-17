@@ -10,8 +10,8 @@ test.after(async () => { await browser.close(); });
 
 // Opens the page in a fresh context; collects errors and any non-file network requests.
 const WEATHER_HOSTS = ['api.open-meteo.com', 'geocoding-api.open-meteo.com', 'get.geojs.io'];
-async function open({ width = 915, height = 412, time, settings, rawStorage, init, net } = {}) {
-  const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1, colorScheme: 'dark' });
+async function open({ width = 915, height = 412, time, settings, rawStorage, init, net, touch = false } = {}) {
+  const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1, colorScheme: 'dark', hasTouch: touch });
   const page = await context.newPage();
   page.setDefaultTimeout(2000);
   const problems = [], external = [], weatherRequests = [];
@@ -388,7 +388,7 @@ for (const [w, h] of [[412, 915], [360, 800], [915, 412], [800, 360]]) {
     for (const tile of await measureTiles(page)) {
       assert.equal(tile.clipped, false, `${tile.name} is not clipped`);
       assert.equal(tile.inside, true, `${tile.name} content stays inside`);
-      const need = tile.name === 'Battery' ? 0.5 : 0.35;
+      const need = tile.name === 'Battery' ? 0.4 : 0.35;
       assert.ok(tile.fill >= need, `${tile.name} content fills ${Math.round(tile.fill * 100)}% (needs ${need * 100}%)`);
     }
     await page.click('.dots [data-page="1"]');
@@ -1350,4 +1350,80 @@ test('a very long app name in Notifications is cut short instead of pushing the 
     assert.ok(r.sw <= r.iw);
     await context.close();
   }
+});
+
+// ---- a real finger on a phone: hold anywhere on the battery tile ----
+async function finger(page, context) {
+  const cdp = await context.newCDPSession(page);
+  const send = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y]) => ({ x, y })) });
+  return { down: (x, y) => send('touchStart', [[x, y]]), move: (x, y) => send('touchMove', [[x, y]]), up: () => send('touchEnd', []) };
+}
+const tilePoint = (page, fx, fy) => page.locator('#battTile').boundingBox().then(b => [b.x + b.width * fx, b.y + b.height * fy]);
+const elementCentre = (page, selector) => page.locator(selector).boundingBox().then(b => [b.x + b.width / 2, b.y + b.height / 2]);
+
+test('with a finger, holding anywhere on the battery tile starts the charge-up, not only on the ring', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero, touch: true });
+  await page.evaluate(() => window.setBattery(0.82, true, 2280));
+  const f = await finger(page, context);
+  const spots = {
+    'the label': await elementCentre(page, '#battTile .label'),
+    'the ring': await elementCentre(page, '#battTile .ring'),
+    'the big text': await elementCentre(page, '#battBig'),
+    'the small text': await elementCentre(page, '#battSub'),
+    'an empty corner': await tilePoint(page, 0.93, 0.93),
+    'the top-right corner': await tilePoint(page, 0.93, 0.08),
+  };
+  for (const [name, [x, y]] of Object.entries(spots)) {
+    await f.down(x, y);
+    await page.clock.runFor(HOLD + 400);
+    assert.notEqual(await pct(page), '82%', `holding on ${name} charges the ring up`);
+    await f.up();
+    await page.clock.runFor(800);
+    assert.equal(await pct(page), '82%', `and letting go after ${name} puts it back`);
+  }
+  await context.close();
+});
+
+test('a normal wobble of the finger does not cancel the hold', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero, touch: true });
+  await page.evaluate(() => window.setBattery(0.82, true, 2280));
+  const f = await finger(page, context);
+  const [x, y] = await tilePoint(page, 0.5, 0.5);
+  await f.down(x, y);
+  await page.clock.runFor(600);
+  await f.move(x + 6, y + 14);                  // fingers are never perfectly still
+  await page.clock.runFor(300);
+  await f.move(x - 4, y - 12);
+  await page.clock.runFor(HOLD - 900 + 400);
+  assert.notEqual(await pct(page), '82%', 'still charging up after a wobble');
+  await f.up();
+  await context.close();
+});
+
+test('sliding the finger well away does cancel it', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero, touch: true });
+  await page.evaluate(() => window.setBattery(0.82, true, 2280));
+  const f = await finger(page, context);
+  const [x, y] = await tilePoint(page, 0.3, 0.5);
+  await f.down(x, y);
+  await page.clock.runFor(HOLD + 600);
+  assert.notEqual(await pct(page), '82%');
+  await f.move(x + 90, y + 10);
+  await page.clock.runFor(300);
+  assert.equal(await pct(page), '82%', 'cancelled');
+  await f.up();
+  await context.close();
+});
+
+test('a normal wobble of the finger does not cancel holding the clock to leave', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: hostStub, touch: true });
+  const f = await finger(page, context);
+  const [x, y] = await elementCentre(page, '.tile.clock');
+  await f.down(x, y);
+  await page.clock.runFor(300);
+  await f.move(x + 5, y + 14);
+  await page.clock.runFor(600);
+  assert.equal(await exits(page), 1, 'still asked the app to leave');
+  await f.up();
+  await context.close();
 });

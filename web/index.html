@@ -51,6 +51,8 @@
   .stage { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); min-height: 0; }
   @media (max-aspect-ratio: 1/1) { .stage { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); } }
 
+  #battTile, .tile.clock { touch-action: none; -webkit-touch-callout: none; }
+  #battTile *, .tile.clock * { pointer-events: none; }   /* the whole tile is the target, wherever you press */
   .tile.clock { justify-content: center; align-items: center; cursor: pointer; container-type: normal; }
   .time { font-family: var(--dot); font-weight: var(--dot-weight); font-variation-settings: "ROND" 100; font-size: calc(min(14.5vw, 32vh) * var(--time-scale) * var(--h12-scale)); line-height: 1; letter-spacing: -.035em; font-variant-numeric: tabular-nums; white-space: nowrap; }
   @media (max-aspect-ratio: 1/1) { .time { font-size: calc(min(31vw, 22vh) * var(--time-scale) * var(--h12-scale)); } }
@@ -455,15 +457,17 @@
   if (window.DockHost && typeof window.DockHost.exit === 'function') $('exitHint').hidden = false;   // the hold-to-exit gesture only works inside the app
   const clockTile = document.querySelector('.tile.clock');
   let pressTimer = null, pressX = 0, pressY = 0, longPressed = false;
+  const WOBBLE = 28;   // px a finger may drift during a hold before it counts as a slide
   const cancelPress = () => { clearTimeout(pressTimer); pressTimer = null; };
   clockTile.addEventListener('pointerdown', e => {
     longPressed = false; pressX = e.clientX; pressY = e.clientY; cancelPress();
+    try { clockTile.setPointerCapture(e.pointerId); } catch (err) {}
     pressTimer = setTimeout(() => {
       longPressed = true;
       if (window.DockHost && typeof window.DockHost.exit === 'function') window.DockHost.exit();
     }, 700);
   });
-  clockTile.addEventListener('pointermove', e => { if (pressTimer && Math.hypot(e.clientX - pressX, e.clientY - pressY) > 12) cancelPress(); });
+  clockTile.addEventListener('pointermove', e => { if (pressTimer && Math.hypot(e.clientX - pressX, e.clientY - pressY) > WOBBLE) cancelPress(); });
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => clockTile.addEventListener(t, cancelPress));
   clockTile.addEventListener('contextmenu', e => e.preventDefault());
   clockTile.onclick = () => { if (longPressed) { longPressed = false; return; } toggleRed(); };
@@ -681,9 +685,10 @@
   battTile.addEventListener('pointerdown', e => {
     if (eggRunning || S.reduceEffects) return;
     eggX = e.clientX; eggY = e.clientY; cancelEgg();
+    try { battTile.setPointerCapture(e.pointerId); } catch (err) {}
     eggTimer = setTimeout(() => { eggTimer = null; runEgg(); }, DockLogic.EGG.holdMs);
   });
-  battTile.addEventListener('pointermove', e => { if ((eggTimer || eggPhase === 'charging') && Math.hypot(e.clientX - eggX, e.clientY - eggY) > 12) cancelEgg(); });
+  battTile.addEventListener('pointermove', e => { if ((eggTimer || eggPhase === 'charging') && Math.hypot(e.clientX - eggX, e.clientY - eggY) > WOBBLE) cancelEgg(); });
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => battTile.addEventListener(t, cancelEgg));
   battTile.addEventListener('contextmenu', e => e.preventDefault());
 
