@@ -876,3 +876,15 @@ test('a steady colon stays steady after a reload', async () => {
   assert.equal(await colonAnimation(page), 'none');
   await context.close();
 });
+
+test('tapping never shows the browser tap-highlight overlay (the blue layer on Android)', async () => {
+  const { page, context } = await open();
+  const colours = await page.evaluate(() => ['.tile.clock', '#battTile', '#redBtn', '#dimBtn', '#settingsBtn', '.dots button', '#page0 .tile'].map(sel =>
+    getComputedStyle(document.querySelector(sel)).webkitTapHighlightColor));
+  for (const c of colours) assert.equal(c, 'rgba(0, 0, 0, 0)');
+  await page.click('#settingsBtn');
+  const inside = await page.evaluate(() => ['[data-font="dot"]', '#setAuto', '#customSwatch', '#startPlus'].map(sel =>
+    getComputedStyle(document.querySelector(sel)).webkitTapHighlightColor));
+  for (const c of inside) assert.equal(c, 'rgba(0, 0, 0, 0)');
+  await context.close();
+});

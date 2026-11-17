@@ -32,6 +32,7 @@
   [hidden] { display: none !important; }
   * { box-sizing: border-box; margin: 0; }
   html, body { height: 100%; }
+  html { -webkit-tap-highlight-color: transparent; }   /* no blue flash on tap (Android WebView) */
   body {
     background: var(--bg); color: var(--fg); font-family: var(--font);
     padding-block: 0;
