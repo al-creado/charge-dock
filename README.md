@@ -56,6 +56,7 @@ and nothing leaves the phone. Ongoing ones (music, downloads) are not counted.
 - `web/` is the dock page, plain HTML, CSS and JavaScript, with its fonts bundled. `app/` is the Android
   app that hosts it in a `WebView` and runs it as a screen saver. The page is copied into the app at build time.
 - Page tests: `NODE_PATH=$(npm root -g) node --test "web/test/*.test.js"` (needs Playwright).
+- Pure Kotlin logic can be tested without the Android SDK: `tools/kotlin-tests/run.sh`.
 - GitHub Actions runs the page tests, the Android unit tests, and builds the debug APK whenever something is merged to `main`.
   The Android build only runs on `main`; on other branches only the page tests can be run by hand (Actions tab, **build**, **Run workflow**).
 - Design: `docs/superpowers/specs/`. Plan: `docs/superpowers/plans/`.

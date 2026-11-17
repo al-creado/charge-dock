@@ -15,7 +15,7 @@ Tick each line pass or fail. Any fail is a bug to report.
 - [ ] **Screen saver settings** opens a page where Charge Dock can be chosen. If not, note what opened instead.
 - [ ] With the screen saver set to **While charging**, plugging in and letting the screen time out shows the dock.
 - [ ] The battery percentage on the dock matches the phone.
-- [ ] The screen saver also follows the phone's orientation. (Android may ignore the request for screen savers; if so, tell me.)
+- [ ] The screen saver follows how the phone is held: it comes up in landscape when the phone is sideways and in portrait when it is upright, even with rotation locked. Turn the phone while it shows and the dock turns too.
 - [ ] With the phone locked, then plugged in, the dock appears over the lock screen after the screen times out.
 - [ ] The line "Hold the clock to exit" shows at the bottom left.
 - [ ] Unplugging leaves the dock.
