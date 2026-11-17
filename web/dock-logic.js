@@ -139,6 +139,47 @@
     };
   }
 
+  // ---- weather (Open-Meteo, no account needed) ----
+  const IP_LOCATION_URL = 'https://get.geojs.io/v1/ip/geo.json';   // rough location from the internet connection
+  const WEATHER_TEXT = [
+    [[0], 'Clear'], [[1], 'Mostly clear'], [[2], 'Partly cloudy'], [[3], 'Overcast'], [[45, 48], 'Fog'],
+    [[51, 53, 55, 56, 57], 'Drizzle'], [[61, 63, 65, 66, 67], 'Rain'], [[71, 73, 75, 77], 'Snow'],
+    [[80, 81, 82], 'Showers'], [[85, 86], 'Snow showers'], [[95, 96, 99], 'Thunderstorm'],
+  ];
+  const weatherText = code => { const hit = WEATHER_TEXT.find(([codes]) => codes.includes(code)); return hit ? hit[1] : 'Weather'; };
+
+  // '18°' (rounded, in C or F), or '' when there is no number.
+  function formatTemperature(celsius, unit) {
+    if (!Number.isFinite(celsius)) return '';
+    const r = Math.round(unit === 'F' ? celsius * 9 / 5 + 32 : celsius);
+    return (r === 0 ? 0 : r) + '\u00b0';
+  }
+
+  const inRange = (v, max) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= max;
+  const forecastUrl = (lat, lon) => 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,weather_code&timezone=auto';
+  const geocodeUrl = name => 'https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(name) + '&count=1&language=en&format=json';
+
+  function parseForecast(json) {
+    const c = json && json.current;
+    return c && Number.isFinite(c.temperature_2m) && Number.isFinite(c.weather_code) ? { tempC: c.temperature_2m, code: c.weather_code } : null;
+  }
+  function parseGeocode(json) {
+    const r = json && Array.isArray(json.results) ? json.results[0] : null;
+    const name = r && typeof r.name === 'string' ? r.name.trim() : '';
+    return name && inRange(r.latitude, 90) && inRange(r.longitude, 180) ? { name, lat: r.latitude, lon: r.longitude } : null;
+  }
+  function parseIpLocation(json) {
+    if (!json) return null;
+    const lat = parseFloat(json.latitude), lon = parseFloat(json.longitude);
+    return inRange(lat, 90) && inRange(lon, 180) ? { name: typeof json.city === 'string' ? json.city.trim() : '', lat, lon } : null;
+  }
+
+  // The line on the clock tile, e.g. '18° · Clear · Delhi'. Empty unless there is real weather: nothing is shown offline.
+  function weatherLine(weather, unit) {
+    if (!weather || !Number.isFinite(weather.tempC)) return '';
+    return [formatTemperature(weather.tempC, unit), weatherText(weather.code), weather.name].filter(Boolean).join(' \u00b7 ');
+  }
+
   // The hidden effect: hold the battery tile for holdMs, then the ring charges up over chargeMs.
   const EGG = { holdMs: 2000, chargeMs: 1800 };
 
@@ -162,8 +203,11 @@
   const DEFAULT_ACCENT = '#d71921';
   const DEFAULT_SETTINGS = {
     font: 'dot', theme: 'system', accent: '#d71921', hour12: false, autoDim: true,
-    dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false, reduceEffects: false,
+    dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false, reduceEffects: false, unit: 'C', weatherCity: null,
   };
+
+  const validCity = c => (c && typeof c.name === 'string' && c.name.trim() && c.name.trim().length <= 60 && inRange(c.lat, 90) && inRange(c.lon, 180)
+    ? { name: c.name.trim(), lat: c.lat, lon: c.lon } : null);
 
   // Turns anything read from storage into a complete, valid settings object.
   function normalizeSettings(raw) {
@@ -184,6 +228,8 @@
       weekStart: r.weekStart === 0 || r.weekStart === 1 ? r.weekStart : d.weekStart,
       red: bool(r.red, d.red),
       reduceEffects: bool(r.reduceEffects, d.reduceEffects),
+      unit: r.unit === 'F' ? 'F' : 'C',
+      weatherCity: validCity(r.weatherCity),
     };
   }
 
@@ -194,7 +240,7 @@
     return theme === 'light' ? 'light' : 'dark';
   }
 
-  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, THEMES, FLASHES, pickFlash, EGG, chargePercent, summarizeNotifications };
+  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, THEMES, FLASHES, pickFlash, EGG, chargePercent, summarizeNotifications, weatherText, formatTemperature, parseForecast, parseGeocode, parseIpLocation, forecastUrl, geocodeUrl, weatherLine, IP_LOCATION_URL };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.DockLogic = api;
 })(typeof window !== 'undefined' ? window : globalThis);

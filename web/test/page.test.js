@@ -9,14 +9,22 @@ test.before(async () => { browser = await chromium.launch({ executablePath: proc
 test.after(async () => { await browser.close(); });
 
 // Opens the page in a fresh context; collects errors and any non-file network requests.
-async function open({ width = 915, height = 412, time, settings, rawStorage, init } = {}) {
+const WEATHER_HOSTS = ['api.open-meteo.com', 'geocoding-api.open-meteo.com', 'get.geojs.io'];
+async function open({ width = 915, height = 412, time, settings, rawStorage, init, net } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1, colorScheme: 'dark' });
   const page = await context.newPage();
   page.setDefaultTimeout(2000);
-  const problems = [], external = [];
+  const problems = [], external = [], weatherRequests = [];
+  const network = { ...(net || {}) };   // ip / forecast / geocode answers; leave one out (or the whole thing) to simulate no connection
+  await context.route(u => WEATHER_HOSTS.includes(new URL(u).hostname), route => {
+    const url = route.request().url(), host = new URL(url).hostname;
+    weatherRequests.push(url);
+    const answer = host === 'get.geojs.io' ? network.ip : host === 'geocoding-api.open-meteo.com' ? network.geocode : network.forecast;
+    return answer ? route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(answer) }) : route.abort('internetdisconnected');
+  });
   page.on('pageerror', e => problems.push(e.message));
-  page.on('console', m => { if (m.type() === 'error') problems.push(m.text()); });
-  page.on('request', r => { const u = r.url(); if (!u.startsWith('file:') && !u.startsWith('data:')) external.push(u); });
+  page.on('console', m => { if (m.type() === 'error' && !/net::ERR|Failed to load resource/.test(m.text())) problems.push(m.text()); });
+  page.on('request', r => { const u = r.url(); if (!u.startsWith('file:') && !u.startsWith('data:') && !WEATHER_HOSTS.includes(new URL(u).hostname)) external.push(u); });
   if (settings !== undefined || rawStorage !== undefined) {
     const value = rawStorage !== undefined ? rawStorage : JSON.stringify(settings);
     await context.addInitScript(v => { try { localStorage.setItem('charge-dock-settings', v); } catch (e) {} }, value);
@@ -25,7 +33,7 @@ async function open({ width = 915, height = 412, time, settings, rawStorage, ini
   if (time) await page.clock.install({ time });
   await page.goto(URL);
   await page.waitForLoadState('load');
-  return { page, context, problems, external };
+  return { page, context, problems, external, weatherRequests, network };
 }
 
 test('loads offline with local fonts', async () => {
@@ -962,14 +970,6 @@ test('the right side has Battery and Notifications; weather and date tiles are g
   await context.close();
 });
 
-test('the clock tile shows the temperature, marked as sample data', async () => {
-  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15) });
-  const t = await page.evaluate(() => ({ text: document.getElementById('temp').textContent, inside: !!document.getElementById('temp').closest('.tile.clock') }));
-  assert.equal(t.inside, true);
-  assert.match(t.text, /^18° · Clear · sample$/);
-  await context.close();
-});
-
 const notif = page => page.evaluate(() => ({
   total: document.getElementById('notifTotal').textContent,
   rows: [...document.querySelectorAll('#notifRows li')].map(li => li.children.length ? [...li.children].map(c => c.textContent).join(' ') : li.textContent.trim()),
@@ -1110,3 +1110,124 @@ test('Fully flashed fits in the battery tile at every size', async () => {
     await context.close();
   }
 });
+
+// ---- weather: shown when the internet answers, nothing at all otherwise ----
+const NET = {
+  ip: { latitude: '28.6139', longitude: '77.2090', city: 'Delhi' },
+  forecast: { current: { temperature_2m: 18.4, weather_code: 1 } },
+  geocode: { results: [{ name: 'Pune', latitude: 18.52, longitude: 73.85, country: 'India' }] },
+};
+const DAY = new Date(2026, 10, 17, 12, 15);
+const tempShown = page => page.evaluate(() => !document.getElementById('temp').hidden);
+const tempText = page => page.evaluate(() => (document.getElementById('temp').hidden ? '' : document.getElementById('temp').textContent));
+const waitForTemp = (page, text) => page.waitForFunction(t => { const e = document.getElementById('temp'); return !e.hidden && (!t || e.textContent === t); }, text);
+
+test('with no internet the temperature line is not there at all', async () => {
+  const { page, context, problems } = await open({ time: DAY });
+  await page.waitForTimeout(400);
+  assert.equal(await tempShown(page), false);
+  assert.equal(await page.evaluate(() => document.body.textContent.includes('sample')), false, 'and nothing says "sample"');
+  assert.deepEqual(problems, []);
+  await context.close();
+});
+
+test('with internet it shows the temperature for the rough location', async () => {
+  const { page, context, weatherRequests } = await open({ time: DAY, net: NET });
+  await waitForTemp(page, '18° · Mostly clear · Delhi');
+  assert.ok(weatherRequests.some(u => u.startsWith('https://get.geojs.io/')), 'asked for a rough location');
+  assert.ok(weatherRequests.includes('https://api.open-meteo.com/v1/forecast?latitude=28.6139&longitude=77.209&current=temperature_2m,weather_code&timezone=auto'));
+  assert.equal(await page.evaluate(() => !!document.getElementById('temp').closest('.tile.clock')), true, 'on the clock tile');
+  await context.close();
+});
+
+test('Fahrenheit shows the converted temperature, and switching in settings is immediate', async () => {
+  let o = await open({ time: DAY, net: NET, settings: { unit: 'F' } });
+  await waitForTemp(o.page, '65° · Mostly clear · Delhi');
+  await o.context.close();
+  o = await open({ time: DAY, net: NET });
+  await waitForTemp(o.page, '18° · Mostly clear · Delhi');
+  await o.page.click('#settingsBtn');
+  await o.page.click('[data-unit="F"]');
+  assert.equal(await tempText(o.page), '65° · Mostly clear · Delhi');
+  await o.context.close();
+});
+
+test('a city saved in settings is used and the rough location lookup is skipped', async () => {
+  const { page, context, weatherRequests } = await open({ time: DAY, net: NET, settings: { weatherCity: { name: 'Mumbai', lat: 19.07, lon: 72.88 } } });
+  await waitForTemp(page, '18° · Mostly clear · Mumbai');
+  assert.equal(weatherRequests.some(u => u.includes('geojs.io')), false);
+  assert.ok(weatherRequests.some(u => u.includes('latitude=19.07&longitude=72.88')));
+  await context.close();
+});
+
+test('typing a city in settings looks it up, saves it and shows its weather', async () => {
+  const { page, context, weatherRequests } = await open({ time: DAY, net: NET });
+  await waitForTemp(page, '18° · Mostly clear · Delhi');
+  await page.click('#settingsBtn');
+  await page.fill('#cityInput', 'Pune');
+  await page.press('#cityInput', 'Enter');
+  await waitForTemp(page, '18° · Mostly clear · Pune');
+  assert.ok(weatherRequests.some(u => u.includes('geocoding-api.open-meteo.com') && u.includes('name=Pune')));
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('charge-dock-settings')).weatherCity);
+  assert.deepEqual(saved, { name: 'Pune', lat: 18.52, lon: 73.85 });
+  assert.equal(await page.getAttribute('#cityInput', 'aria-invalid'), 'false');
+  await context.close();
+});
+
+test('a city that cannot be found is rejected and the weather is left alone', async () => {
+  const { page, context, network } = await open({ time: DAY, net: NET });
+  await waitForTemp(page, '18° · Mostly clear · Delhi');
+  network.geocode = { results: [] };
+  await page.click('#settingsBtn');
+  await page.fill('#cityInput', 'Nowhereville');
+  await page.press('#cityInput', 'Enter');
+  await page.waitForFunction(() => document.getElementById('cityInput').getAttribute('aria-invalid') === 'true');
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('charge-dock-settings') || '{}').weatherCity || null), null);
+  assert.equal(await tempText(page), '18° · Mostly clear · Delhi');
+  await context.close();
+});
+
+test('clearing the city goes back to the automatic location', async () => {
+  const { page, context } = await open({ time: DAY, net: NET, settings: { weatherCity: { name: 'Mumbai', lat: 19.07, lon: 72.88 } } });
+  await waitForTemp(page, '18° · Mostly clear · Mumbai');
+  await page.click('#settingsBtn');
+  await page.fill('#cityInput', '');
+  await page.press('#cityInput', 'Enter');
+  await waitForTemp(page, '18° · Mostly clear · Delhi');
+  await context.close();
+});
+
+test('losing the connection hides the line, and it returns when the connection does', async () => {
+  const { page, context, network } = await open({ time: DAY, net: NET });
+  await waitForTemp(page, '18° · Mostly clear · Delhi');
+  const forecast = network.forecast;
+  network.forecast = null;                                   // the connection drops
+  await page.clock.runFor(31 * 60 * 1000);                   // the next half-hourly refresh fails
+  await page.waitForFunction(() => document.getElementById('temp').hidden);
+  network.forecast = forecast;                               // and comes back
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await waitForTemp(page, '18° · Mostly clear · Delhi');
+  await context.close();
+});
+
+test('an odd or empty answer shows nothing rather than a broken line', async () => {
+  for (const forecast of [{ current: {} }, { error: true }, { current: { temperature_2m: 'hot', weather_code: 1 } }]) {
+    const { page, context, problems } = await open({ time: DAY, net: { ...NET, forecast } });
+    await page.waitForTimeout(400);
+    assert.equal(await tempShown(page), false, JSON.stringify(forecast));
+    assert.deepEqual(problems, []);
+    await context.close();
+  }
+});
+
+for (const [w, h] of [[360, 800], [915, 412]]) {
+  test(`a long city name stays inside the clock tile at ${w}x${h}`, async () => {
+    const long = 'Thiruvananthapuram-on-the-Long-River-Delta';
+    const { page, context } = await open({ width: w, height: h, time: DAY, net: NET, settings: { weatherCity: { name: long, lat: 8.5, lon: 76.9 } } });
+    await waitForTemp(page);
+    const r = await page.evaluate(() => { const t = document.getElementById('temp').getBoundingClientRect(), c = document.querySelector('.tile.clock').getBoundingClientRect(); return { inside: t.left >= c.left - 1 && t.right <= c.right + 1 && t.bottom <= c.bottom + 1, sw: document.documentElement.scrollWidth, iw: innerWidth }; });
+    assert.equal(r.inside, true);
+    assert.ok(r.sw <= r.iw);
+    await context.close();
+  });
+}

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, FLASHES, pickFlash, EGG, chargePercent, summarizeNotifications } = require('../dock-logic.js');
+const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, FLASHES, pickFlash, EGG, chargePercent, summarizeNotifications, weatherText, formatTemperature, parseForecast, parseGeocode, parseIpLocation, forecastUrl, geocodeUrl, weatherLine } = require('../dock-logic.js');
 
 const at = (y, m, d, h = 12, min = 0) => new Date(y, m - 1, d, h, min);
 
@@ -92,7 +92,7 @@ test('normalizeSettings returns defaults for missing or non-object input', () =>
   }
   assert.deepEqual(DEFAULT_SETTINGS, {
     font: 'dot', theme: 'system', accent: '#d71921', hour12: false, autoDim: true,
-    dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false, reduceEffects: false,
+    dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false, reduceEffects: false, unit: 'C', weatherCity: null,
   });
 });
 
@@ -296,4 +296,60 @@ test('summarizeNotifications ignores bad entries and caps big numbers', () => {
   assert.equal(summarizeNotifications([{ app: 'Spam', count: 150 }]).totalLabel, '99+');
   assert.equal(summarizeNotifications([{ app: 'Spam', count: 150 }]).rows[0].label, '99+');
   assert.deepEqual(summarizeNotifications('nope'), { total: 0, totalLabel: '0', rows: [], more: 0 });
+});
+
+test('weatherText describes the weather codes', () => {
+  const expected = { 0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast', 45: 'Fog', 48: 'Fog', 51: 'Drizzle', 55: 'Drizzle', 61: 'Rain', 65: 'Rain', 71: 'Snow', 75: 'Snow', 80: 'Showers', 82: 'Showers', 95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm' };
+  for (const [code, text] of Object.entries(expected)) assert.equal(weatherText(Number(code)), text, `code ${code}`);
+  assert.equal(weatherText(1234), 'Weather');
+  assert.equal(weatherText(NaN), 'Weather');
+});
+
+test('formatTemperature rounds and converts', () => {
+  assert.equal(formatTemperature(18.4, 'C'), '18°');
+  assert.equal(formatTemperature(18.6, 'C'), '19°');
+  assert.equal(formatTemperature(18.4, 'F'), '65°');
+  assert.equal(formatTemperature(-3.2, 'C'), '-3°');
+  assert.equal(formatTemperature(0, 'F'), '32°');
+  assert.equal(formatTemperature(-0.2, 'C'), '0°', 'never "-0"');
+  assert.equal(formatTemperature(NaN, 'C'), '');
+});
+
+test('parseForecast reads the Open-Meteo answer and rejects anything else', () => {
+  assert.deepEqual(parseForecast({ current: { temperature_2m: 18.4, weather_code: 1 } }), { tempC: 18.4, code: 1 });
+  for (const bad of [null, undefined, {}, { current: {} }, { current: { temperature_2m: 'hot', weather_code: 1 } }, { current: { temperature_2m: 18, weather_code: 'x' } }, { error: true }, 'x'])
+    assert.equal(parseForecast(bad), null, JSON.stringify(bad));
+});
+
+test('parseGeocode takes the first city match', () => {
+  assert.deepEqual(parseGeocode({ results: [{ name: 'Pune', latitude: 18.52, longitude: 73.85, country: 'India' }, { name: 'Pune', latitude: 1, longitude: 2 }] }), { name: 'Pune', lat: 18.52, lon: 73.85 });
+  for (const bad of [null, {}, { results: [] }, { results: [{ name: '', latitude: 1, longitude: 2 }] }, { results: [{ name: 'X', latitude: 99, longitude: 2 }] }, { results: [{ name: 'X', latitude: 1, longitude: 200 }] }, { results: [{ name: 'X' }] }])
+    assert.equal(parseGeocode(bad), null, JSON.stringify(bad));
+});
+
+test('parseIpLocation reads the rough location and tolerates a missing city', () => {
+  assert.deepEqual(parseIpLocation({ latitude: '28.6139', longitude: '77.2090', city: 'Delhi' }), { name: 'Delhi', lat: 28.6139, lon: 77.209 });
+  assert.deepEqual(parseIpLocation({ latitude: '28.6', longitude: '77.2' }), { name: '', lat: 28.6, lon: 77.2 });
+  for (const bad of [null, {}, { latitude: 'x', longitude: '1' }, { latitude: '95', longitude: '1' }, { latitude: '1', longitude: '181' }]) assert.equal(parseIpLocation(bad), null, JSON.stringify(bad));
+});
+
+test('the request URLs are built safely', () => {
+  assert.equal(forecastUrl(28.6139, 77.209), 'https://api.open-meteo.com/v1/forecast?latitude=28.6139&longitude=77.209&current=temperature_2m,weather_code&timezone=auto');
+  assert.equal(geocodeUrl('São Paulo & co'), 'https://geocoding-api.open-meteo.com/v1/search?name=S%C3%A3o%20Paulo%20%26%20co&count=1&language=en&format=json');
+});
+
+test('weatherLine is empty unless there is real weather', () => {
+  assert.equal(weatherLine(null, 'C'), '');
+  assert.equal(weatherLine(undefined, 'C'), '');
+  assert.equal(weatherLine({ tempC: 18.4, code: 1, name: 'Delhi' }, 'C'), '18° · Mostly clear · Delhi');
+  assert.equal(weatherLine({ tempC: 18.4, code: 0, name: '' }, 'F'), '65° · Clear');
+});
+
+test('normalizeSettings: unit and weather city', () => {
+  assert.equal(normalizeSettings({}).unit, 'C');
+  assert.equal(normalizeSettings({ unit: 'F' }).unit, 'F');
+  for (const bad of ['K', '', 1, null]) assert.equal(normalizeSettings({ unit: bad }).unit, 'C', String(bad));
+  assert.deepEqual(normalizeSettings({ weatherCity: { name: 'Pune', lat: 18.52, lon: 73.85 } }).weatherCity, { name: 'Pune', lat: 18.52, lon: 73.85 });
+  for (const bad of [null, 'Pune', {}, { name: '', lat: 1, lon: 2 }, { name: 'X', lat: 95, lon: 2 }, { name: 'X', lat: 1, lon: 200 }, { name: 'X', lat: '1', lon: 2 }, { name: 'x'.repeat(80), lat: 1, lon: 2 }])
+    assert.equal(normalizeSettings({ weatherCity: bad }).weatherCity, null, JSON.stringify(bad));
 });
