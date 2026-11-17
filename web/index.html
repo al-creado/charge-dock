@@ -84,7 +84,7 @@
   .batt { display: flex; align-items: center; gap: 4cqmin; min-width: 0; }
 
   .alarm .ampm, .alarm .big { white-space: nowrap; }
-  .tiles .tile .alarm .big { font-size: clamp(22px, min(30cqh, 28cqw), 120px); }
+  .tiles .tile .alarm .big { font-size: clamp(22px, min(34cqh, 34cqw), 130px); }
   .tiles .tile .details .big { font-size: clamp(26px, min(34cqh, 40cqw), 140px); }
   #notifRows li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .notif { display: flex; align-items: center; gap: calc(var(--gap) * 1.5); min-width: 0; }
@@ -119,6 +119,10 @@
     .week b { font-size: clamp(22px, min(7cqh, 18cqw), 90px); }
   }
   @container (max-aspect-ratio: 11/10) {
+    .tiles .tile .alarm .big { display: flex; flex-direction: column; align-items: center; line-height: .95; font-size: clamp(22px, min(25cqh, 52cqw), 150px); }
+    .alarm .sep { display: none; }
+    .alarm, .details { text-align: center; }
+    .tiles .tile .details .big { font-size: clamp(26px, min(34cqh, 52cqw), 150px); }
     .notif { flex-direction: column; align-items: stretch; text-align: center; gap: 3cqmin; }
     #notifRows li { justify-content: center; gap: 1.2em; }
     .batt { flex-direction: column; text-align: center; gap: 3cqmin; }
@@ -210,7 +214,7 @@
         <div class="tile" id="alarmTile" data-state="sample">
           <div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7.5"/><path d="M12 9v4l2.5 1.5M4 5l3-2M20 5l-3-2"/></svg><span id="alarmLabel">Next alarm \u00b7 sample</span></div>
           <div class="alarm">
-            <div class="big" id="alarmTime"><span id="alarmHm">--:--</span><span class="ampm" id="alarmAmpm"></span></div>
+            <div class="big" id="alarmTime"><span id="alarmH">--</span><span class="sep">:</span><span id="alarmM">--</span><span class="ampm" id="alarmAmpm"></span></div>
             <div class="sub" id="alarmWhen">&nbsp;</div>
           </div>
         </div>
@@ -564,7 +568,8 @@
     const a = DockLogic.alarmSummary(alarmState === 'sample' ? sampleAlarmMs() : alarmMs, Date.now(), S.hour12);
     $('alarmTile').dataset.state = a.none ? 'none' : alarmState;
     setText('alarmLabel', alarmState === 'sample' ? 'Next alarm \u00b7 sample' : 'Next alarm');
-    setText('alarmHm', a.none ? '--:--' : a.hh + ':' + a.mm);
+    setText('alarmH', a.none ? '--' : a.hh);
+    setText('alarmM', a.none ? '--' : a.mm);
     setText('alarmAmpm', a.none ? '' : a.suffix);
     setText('alarmWhen', a.none ? 'No alarm set' : a.when + (a.day ? ' \u00b7 ' + a.day : ''));
   }
