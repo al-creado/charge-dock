@@ -32,7 +32,7 @@ Tick each line pass or fail. Any fail is a bug to report.
 - [ ] The **Turn down visual effects** switch is in Settings. With it off, the clock colon blinks and holding the battery tile for two seconds charges the ring up to 100% and flashes once (a single pulse, not a strobe). With it on, the colon is steady and holding does nothing.
 
 ## Tiles
-- [ ] The right side is a 2×2 grid: Battery, Next alarm, Notifications, Battery details. Nothing is cut off in portrait or landscape.
+- [ ] The clock takes about three quarters of the screen and the tiles one quarter. Page 1 has Battery and Notifications, page 2 Next alarm and Battery details, page 3 This week. Swipe between them. Nothing is cut off in portrait or landscape, and the % sits in the middle of the battery ring.
 - [ ] **Next alarm** shows your real next alarm and counts down. Set, change and delete an alarm in the Clock app and the tile follows. With no alarm it says "No alarm set".
 - [ ] **Battery details** shows a believable temperature and voltage that change as the phone charges. °C/°F in Settings changes it.
 - [ ] At your charge limit the Battery tile says **Paused**.

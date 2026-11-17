@@ -105,13 +105,17 @@ test('night mode toggles from the clock tile', async () => {
   await context.close();
 });
 
-test('this week tile lives on the second page', async () => {
+test('page one has Battery and Notifications, page two Next alarm and Battery details, page three This week', async () => {
   const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15) });
-  assert.equal(await page.isVisible('#battBig'), true);
+  const labels = async () => page.evaluate(() => [...document.querySelectorAll('.tiles .page:not([hidden]) .tile .label')].map(l => l.textContent.trim().replace(/ · sample$/, '')));
+  assert.deepEqual(await labels(), ['Battery', 'Notifications']);
   assert.equal(await page.isVisible('#week'), false);
   await page.click('.dots [data-page="1"]');
-  assert.equal(await page.isVisible('#week'), true);
+  assert.deepEqual(await labels(), ['Next alarm', 'Battery details']);
   assert.equal(await page.isVisible('#battBig'), false);
+  await page.click('.dots [data-page="2"]');
+  assert.deepEqual(await labels(), ['This week']);
+  assert.equal(await page.isVisible('#week'), true);
   assert.equal(await page.locator('#week > div').count(), 7);
   assert.equal(await page.locator('#week .today').count(), 1);
   await context.close();
@@ -121,37 +125,41 @@ test('dots mark the current page', async () => {
   const { page, context } = await open();
   const current = () => page.evaluate(() =>
     [...document.querySelectorAll('.dots button')].map(b => b.getAttribute('aria-current')));
-  assert.deepEqual(await current(), ['true', 'false']);
+  assert.deepEqual(await current(), ['true', 'false', 'false']);
   await page.click('.dots [data-page="1"]');
-  assert.deepEqual(await current(), ['false', 'true']);
+  assert.deepEqual(await current(), ['false', 'true', 'false']);
+  await page.click('.dots [data-page="2"]');
+  assert.deepEqual(await current(), ['false', 'false', 'true']);
   await context.close();
 });
 
 test('arrow keys and swiping change pages', async () => {
   const { page, context } = await open();
   await page.keyboard.press('ArrowRight');
+  assert.equal(await page.isVisible('#alarmTile'), true);
+  await page.keyboard.press('ArrowRight');
   assert.equal(await page.isVisible('#week'), true);
-  await page.keyboard.press('ArrowLeft');
-  assert.equal(await page.isVisible('#week'), false);
+  await page.keyboard.press('ArrowRight');
+  assert.equal(await page.isVisible('#week'), true, 'stops at the last page');
+  await page.keyboard.press('ArrowLeft'); await page.keyboard.press('ArrowLeft');
+  assert.equal(await page.isVisible('#battTile'), true);
   const box = await page.locator('#tiles').boundingBox();
   const y = box.y + box.height / 2;
-  await page.mouse.move(box.x + box.width - 40, y);
-  await page.mouse.down();
-  await page.mouse.move(box.x + 40, y, { steps: 5 });
-  await page.mouse.up();
-  assert.equal(await page.isVisible('#week'), true, 'swipe left shows page 2');
-  await page.mouse.move(box.x + 40, y);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width - 40, y, { steps: 5 });
-  await page.mouse.up();
-  assert.equal(await page.isVisible('#week'), false, 'swipe right shows page 1');
+  const swipe = async (from, to) => { await page.mouse.move(from, y); await page.mouse.down(); await page.mouse.move(to, y, { steps: 5 }); await page.mouse.up(); };
+  await swipe(box.x + box.width - 20, box.x + 20);
+  assert.equal(await page.isVisible('#alarmTile'), true, 'swipe left shows page 2');
+  await swipe(box.x + box.width - 20, box.x + 20);
+  assert.equal(await page.isVisible('#week'), true, 'swipe left again shows page 3');
+  await swipe(box.x + 20, box.x + box.width - 20);
+  await swipe(box.x + 20, box.x + box.width - 20);
+  assert.equal(await page.isVisible('#battTile'), true, 'swipe right twice is back on page 1');
   await context.close();
 });
 
 for (const [w, h] of [[915, 412], [412, 915]]) {
   test(`week page fits ${w}x${h}`, async () => {
     const { page, context } = await open({ width: w, height: h });
-    await page.click('.dots [data-page="1"]');
+    await page.click('.dots [data-page="2"]');
     await page.evaluate(() => document.fonts.ready);
     const r = await page.evaluate(() => {
       const wk = document.getElementById('week');
@@ -251,7 +259,7 @@ test('week can start on Sunday', async () => {
   await page.click('#settingsBtn');
   await page.click('[data-weekstart="0"]');
   await page.click('#settingsClose');
-  await page.click('.dots [data-page="1"]');
+  await page.click('.dots [data-page="2"]');
   assert.equal(await page.textContent('#week > div:first-child span'), 'S');
   assert.equal(await page.textContent('#week > div:first-child b'), '15');
   await context.close();
@@ -392,6 +400,12 @@ for (const [w, h] of [[412, 915], [360, 800], [915, 412], [800, 360]]) {
       assert.ok(tile.fill >= need, `${tile.name} content fills ${Math.round(tile.fill * 100)}% (needs ${need * 100}%)`);
     }
     await page.click('.dots [data-page="1"]');
+    for (const tile of await measureTiles(page)) {
+      assert.equal(tile.clipped, false, `${tile.name} is not clipped`);
+      assert.equal(tile.inside, true, `${tile.name} content stays inside`);
+      assert.ok(tile.fill >= 0.35, `${tile.name} content fills ${Math.round(tile.fill * 100)}% (needs 35%)`);
+    }
+    await page.click('.dots [data-page="2"]');
     for (const tile of await measureTiles(page)) {
       assert.equal(tile.clipped, false, `${tile.name} is not clipped`);
       assert.ok(tile.fill >= 0.6, `${tile.name} content fills ${Math.round(tile.fill * 100)}% (needs 60%)`);
@@ -817,8 +831,7 @@ const spacing = async page => { await settled(page); return page.evaluate(() => 
   const out = { left: clock.left, right: W - rightmost, top: Math.min(clock.top, ...tiles.map(t => t.top)), bottomBar: H - bottom.bottom, aboveBar: bottom.top - lowest };
   const landscape = clock.right < tiles[0].left;
   if (landscape) out.clockToTiles = tiles[0].left - clock.right; else out.clockToTiles = tiles[0].top - clock.bottom;
-  if (tiles.length > 1) out.tileColumn = tiles[1].left - tiles[0].right;
-  if (tiles.length > 2) out.tileRow = tiles[2].top - tiles[0].bottom;
+  if (tiles.length > 1) { if (landscape) out.tileRow = tiles[1].top - tiles[0].bottom; else out.tileColumn = tiles[1].left - tiles[0].right; }
   return out;
 }); };
 
@@ -833,11 +846,13 @@ for (const [w, h] of [[915, 412], [412, 915], [800, 360], [360, 800]]) {
     const spread = Math.max(...values) - Math.min(...values);
     assert.ok(spread <= 1, `spacing differs by ${spread.toFixed(1)}px: ${JSON.stringify(Object.fromEntries(Object.entries(sp).map(([k, v]) => [k, +v.toFixed(1)])))}`);
     assert.ok(Math.min(...values) >= 8, 'spacing is not cramped');
-    await page.click('.dots [data-page="1"]');
-    const sp2 = await spacing(page);
-    if (portrait) delete sp2.top;
-    const v2 = Object.values(sp2);
-    assert.ok(Math.max(...v2) - Math.min(...v2) <= 1, `page two spacing differs: ${JSON.stringify(sp2)}`);
+    for (const n of [1, 2]) {
+      await page.click(`.dots [data-page="${n}"]`);
+      const sp2 = await spacing(page);
+      if (portrait) delete sp2.top;
+      const v2 = Object.values(sp2);
+      assert.ok(Math.max(...v2) - Math.min(...v2) <= 1, `page ${n + 1} spacing differs: ${JSON.stringify(sp2)}`);
+    }
     await context.close();
   });
 }
@@ -931,7 +946,7 @@ for (const [w, h] of [[412, 915], [360, 800], [915, 412]]) {
 for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800]]) {
   test(`this week text is centred in its cards at ${w}x${h}`, async () => {
     const { page, context } = await open({ width: w, height: h, time: new Date(2026, 10, 17, 12, 15) });
-    await page.click('.dots [data-page="1"]');
+    await page.click('.dots [data-page="2"]');
     await page.evaluate(() => document.fonts.ready);
     await settled(page);
     const cells = await page.evaluate(() => [...document.querySelectorAll('#week > div')].map(cell => {
@@ -945,7 +960,7 @@ for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800]]) {
         spacing: [getComputedStyle(label).letterSpacing, getComputedStyle(num).letterSpacing],
       };
     }));
-    const landscape = w > h;
+    const landscape = w < h;   // the week is a row of centred day cards in the wide strip under the clock (portrait), a list of rows in the narrow column beside it (landscape)
     for (const c of cells) {
       assert.ok(c.spacing.every(v => v === '0px' || v === 'normal'), `no letter-spacing (it shifts text off-centre): ${c.spacing}`);
       if (landscape) {
@@ -961,10 +976,11 @@ for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800]]) {
 }
 
 // ---- right side: Battery + Notifications; temperature lives on the clock tile ----
-test('the right side is a 2x2 grid: Battery, Next alarm, Notifications, Battery details', async () => {
+test('page one holds Battery and Notifications; the alarm and battery details are on page two', async () => {
   const { page, context } = await open();
-  const labels = await page.evaluate(() => [...document.querySelectorAll('#page0 .tile .label')].map(l => l.textContent.trim()));
-  assert.deepEqual(labels, ['Battery', 'Next alarm · sample', 'Notifications · sample', 'Battery details · sample']);
+  const labelsOf = id => page.evaluate(id => [...document.querySelectorAll(`#${id} .tile .label`)].map(l => l.textContent.trim()), id);
+  assert.deepEqual(await labelsOf('page0'), ['Battery', 'Notifications · sample']);
+  assert.deepEqual(await labelsOf('page1'), ['Next alarm · sample', 'Battery details · sample']);
   assert.equal(await page.evaluate(() => !!document.getElementById('dayNum') || document.body.textContent.includes('H 22')), false);
   await context.close();
 });
@@ -1011,8 +1027,8 @@ test('inside the app, the tile asks for notification access until the app report
 
 // ---- what is actually drawn must be centred, not just the boxes ----
 test('the dates in the week cards are centred by their drawn dots', async () => {
-  const { page, context } = await open({ width: 915, height: 412, time: new Date(2026, 10, 17, 12, 15) });
-  await page.click('.dots [data-page="1"]');
+  const { page, context } = await open({ width: 412, height: 915, time: new Date(2026, 10, 17, 12, 15) });
+  await page.click('.dots [data-page="2"]');
   await page.evaluate(() => document.fonts.ready);
   await settled(page);
   const offs = await page.evaluate(() => [...document.querySelectorAll('#week > div')].map(cell => {
@@ -1252,16 +1268,31 @@ const alarmText = page => page.evaluate(() => ({
 }));
 const localMs = (y, m, d, h, min) => new Date(y, m - 1, d, h, min).getTime();
 
-test('the right side is two columns of two tiles', async () => {
-  const { page, context } = await open({ time: DAY });
-  const pos = await page.evaluate(() => [...document.querySelectorAll('#page0 .tile')].map(t => { const r = t.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width)]; }));
-  assert.equal(pos.length, 4);
-  assert.equal(pos[0][1], pos[1][1], 'first two share a row');
-  assert.equal(pos[2][1], pos[3][1], 'last two share a row');
-  assert.equal(pos[0][0], pos[2][0], 'left column lines up');
-  assert.equal(pos[1][0], pos[3][0], 'right column lines up');
-  assert.ok(Math.abs(pos[0][2] - pos[1][2]) <= 1, 'equal widths');
-  await context.close();
+test('the clock takes 75% and the tiles 25%: stacked beside it in landscape, side by side below it in portrait', async () => {
+  for (const [w, h] of [[915, 412], [412, 915]]) {
+    const { page, context } = await open({ width: w, height: h, time: DAY });
+    for (const n of [0, 1]) {
+      await page.click(`.dots [data-page="${n}"]`);
+      const g = await page.evaluate(() => {
+        const r = e => e.getBoundingClientRect();
+        const clock = r(document.querySelector('.tile.clock')), tiles = [...document.querySelectorAll('.tiles .page:not([hidden]) .tile')].map(r);
+        return { clock, tiles: tiles.map(t => ({ l: t.left, t: t.top, w: t.width, h: t.height })), cw: clock.width, ch: clock.height, gap: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gap')) };
+      });
+      assert.equal(g.tiles.length, 2);
+      if (w > h) {
+        const total = g.cw + g.tiles[0].w;
+        assert.ok(Math.abs(g.cw / total - 0.75) < 0.01, `clock is ${(g.cw / total * 100).toFixed(1)}% of the width`);
+        assert.ok(Math.abs(g.tiles[0].l - g.tiles[1].l) <= 1 && g.tiles[1].t > g.tiles[0].t, 'tiles are stacked');
+        assert.ok(Math.abs(g.tiles[0].h - g.tiles[1].h) <= 1, 'equal heights');
+      } else {
+        const total = g.ch + g.tiles[0].h;
+        assert.ok(Math.abs(g.ch / total - 0.75) < 0.01, `clock is ${(g.ch / total * 100).toFixed(1)}% of the height`);
+        assert.ok(Math.abs(g.tiles[0].t - g.tiles[1].t) <= 1 && g.tiles[1].l > g.tiles[0].l, 'tiles are side by side');
+        assert.ok(Math.abs(g.tiles[0].w - g.tiles[1].w) <= 1, 'equal widths');
+      }
+    }
+    await context.close();
+  }
 });
 
 test('Next alarm shows the time and how long until it rings', async () => {
@@ -1434,10 +1465,37 @@ for (const hour12 of [false, true]) {
     for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800]]) {
       const { page, context } = await open({ width: w, height: h, time: DAY, init: hostStub, settings: { hour12 } });
       await page.evaluate(ms => window.setNextAlarm(ms), localMs(2026, 11, 18, 10, 55));
+      await page.click('.dots [data-page="1"]');
       const r = await page.evaluate(() => { const t = document.getElementById('alarmTile'), b = document.getElementById('alarmTime').getBoundingClientRect(), c = t.getBoundingClientRect(), pad = parseFloat(getComputedStyle(t).paddingLeft); return { clipped: t.scrollWidth > t.clientWidth + 1 || t.scrollHeight > t.clientHeight + 1, inside: b.left >= c.left + pad - 1 && b.right <= c.right - pad + 1 }; });
       assert.equal(r.clipped, false, `not clipped at ${w}x${h}`);
       assert.equal(r.inside, true, `time inside the tile's padding at ${w}x${h}`);
       await context.close();
     }
+  });
+}
+
+// ---- the % in the battery ring sits in the middle of the circle ----
+for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800]]) {
+  test(`the % is centred in the battery ring at ${w}x${h}`, async () => {
+    const { page, context } = await open({ width: w, height: h, time: DAY });
+    await page.evaluate(() => window.setBattery(0.82, true, 2280));
+    await page.evaluate(() => document.fonts.ready);
+    await settled(page);
+    const r = await page.evaluate(() => {
+      const ring = document.querySelector('.ring'), circle = ring.querySelector('.track').getBoundingClientRect(), b = document.getElementById('pct');
+      const box = ring.getBoundingClientRect(), cs = getComputedStyle(b);
+      const ctx = document.createElement('canvas').getContext('2d');
+      ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      const m = ctx.measureText(b.textContent);
+      const range = document.createRange(); range.selectNodeContents(b);
+      const t = range.getBoundingClientRect();
+      const inkCx = t.left + (m.actualBoundingBoxLeft * -1 + m.actualBoundingBoxRight) / 2;
+      const inkCy = t.top + t.height / 2 + (m.actualBoundingBoxDescent - m.actualBoundingBoxAscent) / 2 - (m.fontBoundingBoxDescent - m.fontBoundingBoxAscent) / 2;
+      return { square: Math.abs(box.width - box.height) < 0.5, dx: inkCx - (circle.left + circle.width / 2), dy: inkCy - (circle.top + circle.height / 2) };
+    });
+    assert.equal(r.square, true, 'the ring box is square, so the circle is not off-centre inside it');
+    assert.ok(Math.abs(r.dx) <= 1, `% is off the circle's centre sideways by ${r.dx.toFixed(2)}px`);
+    assert.ok(Math.abs(r.dy) <= 1.5, `% is off the circle's centre vertically by ${r.dy.toFixed(2)}px`);
+    await context.close();
   });
 }

@@ -1,7 +1,7 @@
 # Charge Dock
 
 A minimal bedside dock for an Android phone on a charger: a big dot-matrix clock with the temperature, and tiles for
-battery, your next alarm, notifications and battery details, plus a week view, in the spirit of iPhone StandBy. It starts by itself while the phone is charging.
+battery, your next alarm, notifications and battery details, plus a week view, on three swipeable pages beside a big clock, in the spirit of iPhone StandBy. It starts by itself while the phone is charging.
 Built for the Nothing Phone (1), and it should run on any Android 8 or newer phone.
 
 ## Get the app
