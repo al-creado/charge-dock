@@ -1,0 +1,39 @@
+name: build
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save playwright@1.49.1
+      - run: npx playwright install --with-deps chromium
+      - run: node --test "web/test/*.test.js"
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests and debug APK
+        run: ./gradlew --no-daemon testDebugUnitTest assembleDebug
+      - name: APK contains the dock page
+        run: |
+          unzip -l app/build/outputs/apk/debug/app-debug.apk > apk-contents.txt
+          grep -q 'assets/index.html' apk-contents.txt
+          grep -q 'assets/dock-logic.js' apk-contents.txt
+          grep -q 'assets/fonts/' apk-contents.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: charge-dock-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
