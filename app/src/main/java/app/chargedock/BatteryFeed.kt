@@ -43,15 +43,15 @@ class BatteryFeed(private val context: Context, private val webView: WebView) {
         val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
         val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
         val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
-        val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-            status == BatteryManager.BATTERY_STATUS_FULL ||
-            plugged != 0
+        // Really taking charge only. A phone held at its charge limit is plugged in but reports "not charging".
+        val charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+        val pluggedIn = plugged != 0
         val chargeTimeMs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             (context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager).computeChargeTimeRemaining()
         } else {
             -1L
         }
-        val script = BatteryJs.script(level, scale, charging, chargeTimeMs)
+        val script = BatteryJs.script(level, scale, charging, chargeTimeMs, pluggedIn)
         latest = script
         if (pageLoaded) webView.evaluateJavascript(script, null)
     }

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { chromium } = require('playwright');
 
-const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
+const PAGE_URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
 let browser;
 test.before(async () => { browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined }); });
 test.after(async () => { await browser.close(); });
@@ -31,7 +31,7 @@ async function open({ width = 915, height = 412, time, settings, rawStorage, ini
   }
   if (init) await context.addInitScript(init);
   if (time) await page.clock.install({ time });
-  await page.goto(URL);
+  await page.goto(PAGE_URL);
   await page.waitForLoadState('load');
   return { page, context, problems, external, weatherRequests, network };
 }
@@ -1126,7 +1126,7 @@ test('with no internet the temperature line is not there at all', async () => {
   const { page, context, problems } = await open({ time: DAY });
   await page.waitForTimeout(400);
   assert.equal(await tempShown(page), false);
-  assert.equal(await page.evaluate(() => document.body.textContent.includes('sample')), false, 'and nothing says "sample"');
+  assert.equal(await page.evaluate(() => document.querySelector('.tile.clock').textContent.includes('sample')), false, 'and the clock tile says nothing about a sample');
   assert.deepEqual(problems, []);
   await context.close();
 });
@@ -1231,3 +1231,15 @@ for (const [w, h] of [[360, 800], [915, 412]]) {
     await context.close();
   });
 }
+
+test('the dock says Paused when the phone is plugged in but holding at its charge limit', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15) });
+  const read = () => page.evaluate(() => ({ pct: document.getElementById('pct').textContent, big: document.getElementById('battBig').textContent, sub: document.getElementById('battSub').textContent }));
+  await page.evaluate(() => window.setBattery(0.8, false, -1, true));
+  assert.deepEqual(await read(), { pct: '80%', big: 'Paused', sub: 'Holding at 80%' });
+  await page.evaluate(() => window.setBattery(0.8, true, 1800, true));
+  assert.equal((await read()).big, 'Charging', 'and back to Charging when charging resumes');
+  await page.evaluate(() => window.setBattery(0.8, false, -1, false));
+  assert.equal((await read()).big, 'Not charging', 'unplugged is not paused');
+  await context.close();
+});

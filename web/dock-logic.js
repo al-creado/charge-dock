@@ -30,9 +30,15 @@
   }
 
   // level: 0..1, or -1 / NaN when unknown. secsToFull: seconds, or -1 when unknown.
-  function batteryText(level, charging, secsToFull) {
+  // pluggedIn: true when a charger is connected, even if the battery is not taking charge (a phone holding at its
+  // charge limit). It defaults to `charging`, so the older three-argument call behaves as before.
+  function batteryText(level, charging, secsToFull, pluggedIn = charging) {
     const known = Number.isFinite(level) && level >= 0;
     const pct = known ? Math.round(Math.min(level, 1) * 100) + '%' : '--%';
+    if (!charging && pluggedIn) {
+      if (known && level >= 1) return { pct, big: 'Full', sub: 'Fully charged' };
+      return { pct, big: 'Paused', sub: known ? 'Holding at ' + pct : 'Charging is paused' };
+    }
     if (!charging) return { pct, big: 'Not charging', sub: 'Plug in to charge' };
     if (!known) return { pct, big: 'Charging', sub: 'Level unknown' };
     if (level >= 1) return { pct, big: 'Full', sub: 'Fully charged' };

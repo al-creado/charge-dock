@@ -59,7 +59,7 @@
   .ampm:empty { display: none; }
   .ampm { font-family: var(--font); font-weight: 400; font-size: .2em; letter-spacing: .05em; margin-left: .25em; color: var(--muted); }
   @keyframes pulse { 50% { opacity: .25; } }
-  .temp { margin-top: .8vmin; color: var(--muted); font-size: clamp(12px, 2.4vmin, 20px); letter-spacing: .08em; text-transform: uppercase; }
+  .temp { margin-top: .8vmin; max-width: 100%; text-align: center; overflow-wrap: anywhere; color: var(--muted); font-size: clamp(12px, 2.4vmin, 20px); letter-spacing: .08em; text-transform: uppercase; }
   .date { margin-top: 1.6vmin; color: var(--muted); font-size: clamp(12px, 2.6vmin, 22px); font-weight: 400; letter-spacing: .12em; text-transform: uppercase; }
 
   .tiles { position: relative; min-height: 0; touch-action: pan-y; }
@@ -160,6 +160,9 @@
   #sat { --track: linear-gradient(90deg, hsl(var(--h) 0% var(--lp)), hsl(var(--h) 100% var(--lp))); }
   #lig { --track: linear-gradient(90deg, #000, hsl(var(--h) var(--sp) 50%), #fff); }
   #customHex { width: 8.2em; padding: .55em .7em; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--fg); font: inherit; font-size: 13px; letter-spacing: .04em; -webkit-user-select: text; user-select: text; text-transform: lowercase; }
+  .field { width: 11em; padding: .55em .7em; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--fg); font: inherit; font-size: 13px; -webkit-user-select: text; user-select: text; }
+  .field:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .field[aria-invalid="true"] { border-color: #ff5a4d; }
   #customHex:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   #customHex[aria-invalid="true"] { border-color: #ff5a4d; }
   .step { display: flex; align-items: center; gap: 10px; }
@@ -183,7 +186,7 @@
     <div class="clock tile">
       <div class="time" id="time" aria-live="off"><span id="hh">00</span><span class="colon">:</span><span id="mm">00</span><span class="ampm" id="ampm"></span></div>
       <div class="date" id="date"></div>
-      <div class="temp" id="temp">18° · Clear · sample</div>
+      <div class="temp" id="temp" hidden></div>
     </div>
 
     <div class="tiles" id="tiles">
@@ -266,6 +269,10 @@
       </div>
       <div class="row"><span class="rl">Time format</span>
         <div class="seg"><button data-hour12="false">24-hour</button><button data-hour12="true">12-hour</button></div></div>
+      <div class="row"><span class="rl">Temperature</span>
+        <div class="seg"><button data-unit="C">&deg;C</button><button data-unit="F">&deg;F</button></div></div>
+      <div class="row"><span class="rl">Weather city</span>
+        <input type="text" id="cityInput" class="field" maxlength="60" placeholder="Automatic" autocomplete="off" autocapitalize="words" spellcheck="false" aria-label="Weather city" aria-invalid="false"></div>
       <div class="row"><span class="rl">Week starts on</span>
         <div class="seg"><button data-weekstart="1">Monday</button><button data-weekstart="0">Sunday</button></div></div>
       <div class="row"><span class="rl">Turn down visual effects</span>
@@ -350,7 +357,8 @@
     document.body.classList.toggle('red', S.red);
     const mark = (attr, value) => document.querySelectorAll('[data-' + attr + ']').forEach(b =>
       b.setAttribute('aria-pressed', String(b.dataset[attr] === String(value))));
-    mark('font', S.font); mark('themeopt', S.theme); mark('accent', S.accent); mark('hour12', S.hour12); mark('weekstart', S.weekStart);
+    mark('font', S.font); mark('themeopt', S.theme); mark('unit', S.unit);
+    if (document.activeElement !== $('cityInput')) $('cityInput').value = S.weatherCity ? S.weatherCity.name : ''; mark('accent', S.accent); mark('hour12', S.hour12); mark('weekstart', S.weekStart);
     const preset = DockLogic.ACCENTS.includes(S.accent);
     $('customSwatch').setAttribute('aria-pressed', String(!preset));
     if (preset) { $('customSwatch').style.removeProperty('--c'); $('customSwatch').style.removeProperty('color'); }
@@ -369,7 +377,7 @@
     $('endValue').textContent = DockLogic.formatHour(S.dimEnd, S.hour12);
     $('levelValue').textContent = S.dimLevel + '%';
     $('redBtn').setAttribute('aria-pressed', String(S.red));
-    dayKey = ''; tick(); applyDimming();
+    dayKey = ''; tick(); applyDimming(); if (typeof renderWeather === 'function') renderWeather();
   }
   const change = fn => { fn(); saveSettings(); applySettings(); };
 
@@ -396,6 +404,7 @@
     const d = b.dataset;
     if (d.font) change(() => { S.font = d.font; });
     else if (d.themeopt) change(() => { S.theme = d.themeopt; });
+    else if (d.unit) change(() => { S.unit = d.unit; });
     else if (d.accent) change(() => { S.accent = d.accent; customOpen = false; });
     else if (d.hour12) change(() => { S.hour12 = d.hour12 === 'true'; });
     else if (d.weekstart) change(() => { S.weekStart = Number(d.weekstart); });
@@ -465,19 +474,65 @@
   // ---- battery: the Android app calls window.setBattery(level 0..1 or -1, charging, secondsToFull or -1) ----
   let lastBattery = [-1, true, -1], eggRunning = false, lastFlashAgent = null;
   function renderBattery() {
-    const [level, charging, secsToFull] = lastBattery;
-    const t = DockLogic.batteryText(level, charging, secsToFull);
+    const [level, charging, secsToFull, pluggedIn] = lastBattery;
+    const t = DockLogic.batteryText(level, charging, secsToFull, pluggedIn);
     const known = Number.isFinite(level) && level >= 0;
     $('pct').textContent = t.pct;
     $('battBig').textContent = t.big;
     $('battSub').textContent = t.sub;
     $('ringFill').style.strokeDashoffset = String(known ? 251.3 * (1 - Math.min(level, 1)) : 251.3);
   }
-  window.setBattery = (level, charging, secsToFull) => {
-    lastBattery = [level, charging, secsToFull];
+  window.setBattery = (level, charging, secsToFull, pluggedIn = charging) => {
+    lastBattery = [level, charging, secsToFull, pluggedIn];
     if (!eggRunning) renderBattery();   // a hidden effect may be showing; the newest reading appears when it ends
   };
   window.setBattery(-1, true, -1);
+
+  // ---- weather: shown only when the internet answers; offline or on any failure the line is not there at all ----
+  let weather = null, ipLocation = null, weatherRun = 0, retryTimer = null;
+  function renderWeather() {
+    const line = DockLogic.weatherLine(weather, S.unit), el = $('temp');
+    el.textContent = line;
+    el.hidden = !line;
+  }
+  async function getJson(url) {
+    const abort = new AbortController(), timer = setTimeout(() => abort.abort(), 10000);
+    try {
+      const r = await fetch(url, { signal: abort.signal });
+      if (!r.ok) throw new Error('http ' + r.status);
+      return await r.json();
+    } finally { clearTimeout(timer); }
+  }
+  async function refreshWeather() {
+    const run = ++weatherRun;                       // only the newest request may change what is shown
+    clearTimeout(retryTimer);
+    let result = null;
+    try {
+      if (navigator.onLine === false) throw new Error('offline');
+      let loc = S.weatherCity;                      // the city from Settings, else a rough location from the connection
+      if (!loc) { ipLocation = ipLocation || DockLogic.parseIpLocation(await getJson(DockLogic.IP_LOCATION_URL)); loc = ipLocation; }
+      const f = loc && DockLogic.parseForecast(await getJson(DockLogic.forecastUrl(loc.lat, loc.lon)));
+      result = f ? { ...f, name: loc.name } : null;
+    } catch (e) { ipLocation = null; }
+    if (run !== weatherRun) return;
+    weather = result;
+    renderWeather();
+    if (!weather) retryTimer = setTimeout(refreshWeather, 5 * 60 * 1000);   // try again in a few minutes
+  }
+  async function commitCity() {
+    const input = $('cityInput'), text = input.value.trim();
+    if (!text) { S.weatherCity = null; input.setAttribute('aria-invalid', 'false'); saveSettings(); refreshWeather(); return; }
+    try {
+      const found = DockLogic.parseGeocode(await getJson(DockLogic.geocodeUrl(text)));
+      if (!found) throw new Error('not found');
+      S.weatherCity = found; input.value = found.name; input.setAttribute('aria-invalid', 'false');
+      saveSettings(); refreshWeather();
+    } catch (e) { input.setAttribute('aria-invalid', 'true'); }   // not found, or no connection: leave the weather as it is
+  }
+  $('cityInput').addEventListener('change', commitCity);
+  $('cityInput').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+  addEventListener('online', refreshWeather);
+  setInterval(refreshWeather, 30 * 60 * 1000);
 
   // ---- notifications: the Android app calls setNotifications([{app, count}, ...]) and setNotificationAccess(bool) ----
   const SAMPLE_NOTIFICATIONS = [{ app: 'Messages', count: 2 }, { app: 'Mail', count: 2 }, { app: 'Calendar', count: 1 }];
@@ -597,6 +652,7 @@
   }, 120000);
 
   applySettings();
+  refreshWeather();
   setInterval(tick, 1000);
   setInterval(applyDimming, 5000);
 </script>

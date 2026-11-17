@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Weather only: the temperature comes from open-meteo.com. Notification data never leaves the phone. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- Needed to show the real app name next to each notification count. -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 

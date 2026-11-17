@@ -353,3 +353,15 @@ test('normalizeSettings: unit and weather city', () => {
   for (const bad of [null, 'Pune', {}, { name: '', lat: 1, lon: 2 }, { name: 'X', lat: 95, lon: 2 }, { name: 'X', lat: 1, lon: 200 }, { name: 'X', lat: '1', lon: 2 }, { name: 'x'.repeat(80), lat: 1, lon: 2 }])
     assert.equal(normalizeSettings({ weatherCity: bad }).weatherCity, null, JSON.stringify(bad));
 });
+
+test('batteryText: plugged in but not charging (a charge limit) reads Paused', () => {
+  assert.deepEqual(batteryText(0.8, false, -1, true), { pct: '80%', big: 'Paused', sub: 'Holding at 80%' });
+  assert.deepEqual(batteryText(-1, false, -1, true), { pct: '--%', big: 'Paused', sub: 'Charging is paused' });
+  assert.deepEqual(batteryText(1, false, -1, true), { pct: '100%', big: 'Full', sub: 'Fully charged' }, 'full is still full');
+});
+
+test('batteryText: unplugged is still Not charging, and the old three-argument call is unchanged', () => {
+  assert.deepEqual(batteryText(0.8, false, -1, false), { pct: '80%', big: 'Not charging', sub: 'Plug in to charge' });
+  assert.deepEqual(batteryText(0.8, false, -1), { pct: '80%', big: 'Not charging', sub: 'Plug in to charge' });
+  assert.deepEqual(batteryText(0.8, true, 1800, true), { pct: '80%', big: 'Charging', sub: 'Full in about 30 min' });
+});
