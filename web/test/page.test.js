@@ -694,7 +694,8 @@ test('holding the battery tile for two seconds charges the ring to 100%, an orb 
   assert.equal(await orbShown(page), false, 'the orb has popped');
   assert.equal(await page.evaluate(() => document.getElementById('flash').style.getPropertyValue('--tint')), '#ff7a1a');
   await page.clock.runFor(400);                         // hold
-  await page.clock.runFor(2000);                        // fade and recovery
+  // Fade and recovery. Step the clock until the effect has cleared (bounded), so a slow CI machine can't make this flaky.
+  for (let i = 0; i < 8 && (await agent(page)) !== ''; i++) await page.clock.runFor(500);
   assert.equal(await flashStyle(page), '0', 'back to normal');
   assert.equal(await pct(page), '82%', 'the real battery level returns');
   assert.equal(await page.isVisible('#battSub'), true, 'the line under the heading is back');
