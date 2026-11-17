@@ -201,8 +201,6 @@
         <div class="step"><button id="startMinus" aria-label="Start one hour earlier">&minus;</button><output id="startValue">22:00</output><button id="startPlus" aria-label="Start one hour later">+</button></div></div>
       <div class="row"><span class="rl">Dim until</span>
         <div class="step"><button id="endMinus" aria-label="End one hour earlier">&minus;</button><output id="endValue">07:00</output><button id="endPlus" aria-label="End one hour later">+</button></div></div>
-      <div class="row"><span class="rl">Burn-in protection</span>
-        <button class="switch" id="setDrift" role="switch" aria-checked="true" aria-label="Burn-in protection"></button></div>
     </div>
     <button id="resetSettings">Reset to defaults</button>
   </div>
@@ -260,12 +258,10 @@
       b.setAttribute('aria-pressed', String(b.dataset[attr] === String(value))));
     mark('font', S.font); mark('accent', S.accent); mark('hour12', S.hour12); mark('weekstart', S.weekStart);
     $('setAuto').setAttribute('aria-checked', String(S.autoDim));
-    $('setDrift').setAttribute('aria-checked', String(S.drift));
     $('startValue').textContent = pad(S.dimStart) + ':00';
     $('endValue').textContent = pad(S.dimEnd) + ':00';
     $('levelValue').textContent = S.dimLevel + '%';
     $('redBtn').setAttribute('aria-pressed', String(S.red));
-    if (!S.drift) $('stage').style.transform = '';
     dayKey = ''; tick(); applyDimming();
   }
   const change = fn => { fn(); saveSettings(); applySettings(); };
@@ -278,7 +274,6 @@
   $('settingsClose').onclick = closeSettings;
   const actions = {
     setAuto: () => { S.autoDim = !S.autoDim; manual = null; },
-    setDrift: () => { S.drift = !S.drift; },
     levelMinus: () => { S.dimLevel = Math.max(10, S.dimLevel - 10); },
     levelPlus: () => { S.dimLevel = Math.min(80, S.dimLevel + 10); },
     startMinus: () => { S.dimStart = (S.dimStart + 23) % 24; },
@@ -342,7 +337,7 @@
 
   // ---- burn-in protection: drift the layout a few pixels every 2 minutes ----
   setInterval(() => {
-    if (S.drift) $('stage').style.transform = 'translate(' + (Math.random() * 8 - 4).toFixed(1) + 'px,' + (Math.random() * 8 - 4).toFixed(1) + 'px)';
+    $('stage').style.transform = 'translate(' + (Math.random() * 8 - 4).toFixed(1) + 'px,' + (Math.random() * 8 - 4).toFixed(1) + 'px)';
   }, 120000);
 
   applySettings();

@@ -91,7 +91,7 @@ test('normalizeSettings returns defaults for missing or non-object input', () =>
   }
   assert.deepEqual(DEFAULT_SETTINGS, {
     font: 'dot', accent: '#d71921', hour12: false, autoDim: true,
-    dimStart: 22, dimEnd: 7, dimLevel: 30, drift: true, weekStart: 1, red: false,
+    dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false,
   });
 });
 

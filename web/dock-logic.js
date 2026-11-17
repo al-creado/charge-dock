@@ -45,7 +45,7 @@
   const ACCENTS = ['#d71921', '#ffb25b', '#5be28c', '#4aa3ff', '#f4f3f0'];
   const DEFAULT_SETTINGS = {
     font: 'dot', accent: '#d71921', hour12: false, autoDim: true,
-    dimStart: 22, dimEnd: 7, dimLevel: 30, drift: true, weekStart: 1, red: false,
+    dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false,
   };
 
   // Turns anything read from storage into a complete, valid settings object.
@@ -63,7 +63,6 @@
       dimStart: hour(r.dimStart, d.dimStart),
       dimEnd: hour(r.dimEnd, d.dimEnd),
       dimLevel: level,
-      drift: bool(r.drift, d.drift),
       weekStart: r.weekStart === 0 || r.weekStart === 1 ? r.weekStart : d.weekStart,
       red: bool(r.red, d.red),
     };
