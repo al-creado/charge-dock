@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour } = require('../dock-logic.js');
+const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, FLASHES, pickFlash } = require('../dock-logic.js');
 
 const at = (y, m, d, h = 12, min = 0) => new Date(y, m - 1, d, h, min);
 
@@ -92,7 +92,7 @@ test('normalizeSettings returns defaults for missing or non-object input', () =>
   }
   assert.deepEqual(DEFAULT_SETTINGS, {
     font: 'dot', theme: 'dark', accent: '#d71921', hour12: false, autoDim: true,
-    dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false,
+    dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false, flash: true,
   });
 });
 
@@ -204,4 +204,41 @@ test('formatHour shows 24-hour and 12-hour hours', () => {
   assert.equal(formatHour(12, true), '12:00 PM');
   assert.equal(formatHour(13, true), '1:00 PM');
   assert.equal(formatHour(23, true), '11:00 PM');
+});
+
+test('flash effects setting defaults to on and rejects junk', () => {
+  assert.equal(normalizeSettings({}).flash, true);
+  assert.equal(normalizeSettings({ flash: false }).flash, false);
+  for (const bad of ['no', 0, null]) assert.equal(normalizeSettings({ flash: bad }).flash, true, String(bad));
+});
+
+test('the flash list is the agents with flash abilities', () => {
+  assert.deepEqual(FLASHES.map(f => [f.agent, f.ability]), [
+    ['Phoenix', 'Curveball'],
+    ['Breach', 'Flashpoint'],
+    ['Yoru', 'Blindside'],
+    ['Skye', 'Guiding Light'],
+    ['KAY/O', 'FLASH/drive'],
+  ]);
+});
+
+test('every flash is a single gentle pulse: short hold, long fade, never a strobe', () => {
+  for (const f of FLASHES) {
+    assert.ok(f.windup >= 200 && f.windup <= 1500, `${f.agent} windup ${f.windup}`);
+    assert.ok(f.hold >= 200 && f.hold <= 600, `${f.agent} hold ${f.hold}`);
+    assert.ok(f.fade >= 800 && f.fade <= 3000, `${f.agent} fade ${f.fade}`);
+  }
+});
+
+test('pickFlash maps the random number onto the list', () => {
+  assert.equal(pickFlash(0, null).agent, 'Phoenix');
+  assert.equal(pickFlash(0.999999, null).agent, 'KAY/O');
+  assert.equal(pickFlash(0.5, null).agent, 'Yoru');
+});
+
+test('pickFlash never repeats the previous agent', () => {
+  for (const last of FLASHES.map(f => f.agent)) {
+    for (let r = 0; r < 1; r += 0.01) assert.notEqual(pickFlash(r, last).agent, last, `${last} at ${r}`);
+  }
+  assert.equal(pickFlash(0, 'Phoenix').agent, 'Breach');
 });

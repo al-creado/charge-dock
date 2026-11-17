@@ -34,7 +34,8 @@ Preview keeps the screen on while it is showing.
 - The gear opens **Settings**: clock font, theme (dark, light or device default), accent colour
   (including a custom colour you can paste as a hex code), 12 or 24-hour time, week start,
   and the hours and level for auto-dim.
-- A long press, the power button, or unplugging leaves the dock.
+- A long press on the clock tile, the power button, or unplugging leaves the dock.
+- Settings also has a **Flash effects** switch. Turn it off if you do not want any full-screen flashes.
 
 ## Notes
 

@@ -108,13 +108,29 @@
     return (hour % 12 === 0 ? 12 : hour % 12) + ':00 ' + (hour < 12 ? 'AM' : 'PM');
   }
 
+  // Agents with a classic flash ability. Each is one gentle pulse: wind up, a short hold at full white, a long fade.
+  const FLASHES = [
+    { agent: 'Phoenix', ability: 'Curveball',     windup: 700, hold: 400, fade: 1600 },
+    { agent: 'Breach',  ability: 'Flashpoint',    windup: 350, hold: 350, fade: 1400 },
+    { agent: 'Yoru',    ability: 'Blindside',     windup: 900, hold: 450, fade: 1800 },
+    { agent: 'Skye',    ability: 'Guiding Light', windup: 550, hold: 400, fade: 1500 },
+    { agent: 'KAY/O',   ability: 'FLASH/drive',   windup: 500, hold: 450, fade: 1700 },
+  ];
+
+  // rand is a number in [0, 1). Never returns lastAgent, so the same flash does not come twice in a row.
+  function pickFlash(rand, lastAgent) {
+    const pool = FLASHES.filter(f => f.agent !== lastAgent);
+    const r = Math.min(Math.max(Number.isFinite(rand) ? rand : 0, 0), 0.999999);
+    return pool[Math.floor(r * pool.length)];
+  }
+
   const FONTS = ['dot', 'mono', 'sans'];
   const THEMES = ['dark', 'light', 'system'];
   const ACCENTS = ['#d71921', '#ffb25b', '#5be28c', '#4aa3ff', '#f4f3f0'];
   const DEFAULT_ACCENT = '#d71921';
   const DEFAULT_SETTINGS = {
     font: 'dot', theme: 'dark', accent: '#d71921', hour12: false, autoDim: true,
-    dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false,
+    dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false, flash: true,
   };
 
   // Turns anything read from storage into a complete, valid settings object.
@@ -135,6 +151,7 @@
       dimLevel: level,
       weekStart: r.weekStart === 0 || r.weekStart === 1 ? r.weekStart : d.weekStart,
       red: bool(r.red, d.red),
+      flash: bool(r.flash, d.flash),
     };
   }
 
@@ -145,7 +162,7 @@
     return theme === 'light' ? 'light' : 'dark';
   }
 
-  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, THEMES };
+  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, THEMES, FLASHES, pickFlash };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.DockLogic = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -653,3 +653,118 @@ for (const hour12 of [false, true]) {
     await context.close();
   });
 }
+
+// ---- hidden: hold the battery tile for five seconds ----
+const randomZero = () => { Math.random = () => 0; };
+const flashStyle = page => page.evaluate(() => document.getElementById('flash').style.opacity);
+const pct = page => page.textContent('#pct');
+const press = async (page, selector) => {
+  const box = await page.locator(selector).boundingBox();
+  const x = box.x + box.width / 2, y = box.y + box.height / 2;
+  await page.mouse.move(x, y); await page.mouse.down();
+  return { x, y };
+};
+
+test('holding the battery tile for five seconds fills the ring, then flashes white, then returns to normal', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
+  await page.evaluate(() => window.setBattery(0.82, true, 2280));
+  await press(page, '#battTile');
+  await page.clock.runFor(4900);
+  assert.equal(await pct(page), '82%', 'nothing happens before five seconds');
+  assert.equal(await flashStyle(page), '0');
+  await page.clock.runFor(200);
+  assert.equal(await pct(page), '100%', 'ring jumps to full after five seconds');
+  assert.equal(await flashStyle(page), '0', 'the flash is still winding up');
+  await page.clock.runFor(800);   // Phoenix: 700 ms windup
+  assert.equal(await flashStyle(page), '1', 'full white');
+  assert.match(await page.textContent('#eggNote'), /Phoenix.*Curveball/);
+  await page.clock.runFor(400);   // hold
+  await page.clock.runFor(2000);  // fade and recovery
+  assert.equal(await flashStyle(page), '0', 'back to normal');
+  assert.equal(await pct(page), '82%', 'the real battery level returns');
+  await page.mouse.up();
+  await context.close();
+});
+
+test('releasing early, moving away, or other tiles do nothing', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
+  await page.evaluate(() => window.setBattery(0.82, true, 2280));
+  // each check is made 5.3 s after pressing, when the effect would be on screen
+  await press(page, '#battTile'); await page.clock.runFor(3000); await page.mouse.up(); await page.clock.runFor(2300);
+  assert.equal(await pct(page), '82%', 'released early');
+  await page.clock.runFor(5000);
+  const { x, y } = await press(page, '#battTile');
+  await page.clock.runFor(1000); await page.mouse.move(x + 60, y + 40); await page.clock.runFor(4300);
+  assert.equal(await pct(page), '82%', 'moved away');
+  await page.mouse.up(); await page.clock.runFor(5000);
+  await press(page, '#page0 .tile:nth-child(2)'); await page.clock.runFor(5300);
+  assert.equal(await pct(page), '82%', 'a different tile');
+  assert.equal(await flashStyle(page), '0');
+  await page.mouse.up();
+  await context.close();
+});
+
+test('the flash overlay never blocks touches', async () => {
+  const { page, context } = await open();
+  assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('flash')).pointerEvents), 'none');
+  await context.close();
+});
+
+test('the same agent never flashes twice in a row', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
+  await page.evaluate(() => window.setBattery(0.82, true, 2280));
+  await press(page, '#battTile'); await page.clock.runFor(8000); await page.mouse.up();
+  assert.match(await page.textContent('#eggNote'), /Phoenix/);
+  await page.clock.runFor(5000);
+  await press(page, '#battTile'); await page.clock.runFor(8000); await page.mouse.up();
+  assert.match(await page.textContent('#eggNote'), /Breach/);
+  await context.close();
+});
+
+test('with flash effects off, holding does nothing', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero, settings: { flash: false } });
+  await page.evaluate(() => window.setBattery(0.82, true, 2280));
+  await press(page, '#battTile'); await page.clock.runFor(5300);
+  assert.equal(await pct(page), '82%', 'ring does not jump to full');
+  await page.clock.runFor(600);   // where the white flash would be
+  assert.equal(await flashStyle(page), '0');
+  assert.equal(await page.isHidden('#eggNote'), true);
+  await page.mouse.up();
+  await context.close();
+});
+
+test('with reduce-motion on, the ring still fills but the screen never goes white', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.evaluate(() => window.setBattery(0.82, true, 2280));
+  await press(page, '#battTile'); await page.clock.runFor(5200);
+  assert.equal(await pct(page), '100%');
+  await page.clock.runFor(700);   // 5.9 s: where the Phoenix flash is at full white
+  assert.match(await page.textContent('#eggNote'), /Phoenix/);
+  assert.equal(await flashStyle(page), '0', 'no white flash');
+  await page.mouse.up();
+  await context.close();
+});
+
+test('flash effects can be switched off in settings and the choice is remembered', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15) });
+  await page.click('#settingsBtn');
+  assert.equal(await page.getAttribute('#setFlash', 'aria-checked'), 'true');
+  await page.click('#setFlash');
+  assert.equal(await page.getAttribute('#setFlash', 'aria-checked'), 'false');
+  await page.reload();
+  await page.click('#settingsBtn');
+  assert.equal(await page.getAttribute('#setFlash', 'aria-checked'), 'false');
+  await context.close();
+});
+
+test('a battery reading that arrives during the effect does not break it', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
+  await page.evaluate(() => window.setBattery(0.82, true, 2280));
+  await press(page, '#battTile'); await page.clock.runFor(5200);
+  await page.evaluate(() => window.setBattery(0.83, true, 2200));
+  assert.equal(await pct(page), '100%', 'the effect keeps the ring full');
+  await page.clock.runFor(6000); await page.mouse.up();
+  assert.equal(await pct(page), '83%', 'then the newest reading is shown');
+  await context.close();
+});

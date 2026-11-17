@@ -14,7 +14,7 @@ Tick each line pass or fail. Any fail is a bug to report.
 - [ ] With the screen saver set to **While charging**, plugging in and letting the screen time out shows the dock.
 - [ ] The battery percentage on the dock matches the phone.
 - [ ] Unplugging leaves the dock.
-- [ ] A long press leaves the dock.
+- [ ] A long press on the clock tile leaves the dock. Holding the hex field or a slider in Settings does not.
 
 ## Controls
 - [ ] Tapping the clock tile toggles red night mode.
@@ -23,6 +23,7 @@ Tick each line pass or fail. Any fail is a bug to report.
 - [ ] **Theme: Device** follows the phone's dark mode. Turn dark mode on and off and check.
 - [ ] A custom accent colour can be picked with the sliders and by pasting a hex code like `#3399ff`.
 - [ ] Settings are still there after closing and reopening the dock.
+- [ ] The **Flash effects** switch is in Settings. With it on, holding the battery tile for five seconds fills the ring and flashes once; with it off, nothing happens. The flash is a single pulse, not a strobe.
 
 ## Overnight
 - [ ] After a full night of charging the phone is not hot and the dock still shows the right time.

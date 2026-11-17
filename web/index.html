@@ -154,6 +154,8 @@
   .switch[aria-checked="true"]::after { background: var(--accent); transform: translateX(18px); }
   #resetSettings { margin-top: 14px; padding: .6em 1.2em; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: 12px; }
 
+  #flash { position: fixed; inset: 0; z-index: 100; background: #fff; opacity: 0; pointer-events: none; }
+  #eggNote { position: fixed; left: 50%; bottom: 14vmin; transform: translateX(-50%); z-index: 101; padding: .6em 1.1em; border-radius: 99px; background: var(--surface-2); color: var(--fg); font-size: 13px; letter-spacing: .04em; white-space: nowrap; pointer-events: none; }
   body.red { --bg: #060102; --surface: #150607; --surface-2: #220a0c; --line: #301012; --fg: #e8352f; --muted: #7e211f; --accent: #ff5a4d; }
   @media (prefers-reduced-motion: reduce) { .colon, .page { animation: none; } .stage, .dock { transition: none; } }
 </style>
@@ -168,7 +170,7 @@
 
     <div class="tiles" id="tiles">
       <section class="page" id="page0">
-        <div class="tile wide">
+        <div class="tile wide" id="battTile">
           <div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="16" height="9" rx="2.5"/><path d="M21 11v3"/></svg>Battery</div>
           <div class="batt">
             <div class="ring">
@@ -210,6 +212,9 @@
   </div>
 </div>
 
+<div id="flash" aria-hidden="true" style="opacity:0"></div>
+<div id="eggNote" role="status" hidden></div>
+
 <div class="settings" id="settings" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden>
   <div class="sheet">
     <header>
@@ -242,6 +247,8 @@
         <div class="seg"><button data-hour12="false">24-hour</button><button data-hour12="true">12-hour</button></div></div>
       <div class="row"><span class="rl">Week starts on</span>
         <div class="seg"><button data-weekstart="1">Monday</button><button data-weekstart="0">Sunday</button></div></div>
+      <div class="row"><span class="rl">Flash effects</span>
+        <button class="switch" id="setFlash" role="switch" aria-checked="true" aria-label="Flash effects"></button></div>
       <div class="row"><span class="rl">Auto-dim at night</span>
         <button class="switch" id="setAuto" role="switch" aria-checked="true" aria-label="Auto-dim at night"></button></div>
       <div class="row"><span class="rl">Dim brightness</span>
@@ -338,6 +345,7 @@
     $('customRow').style.setProperty('--lp', $('lig').value + '%');
     if (document.activeElement !== $('customHex')) $('customHex').value = S.accent;
     $('setAuto').setAttribute('aria-checked', String(S.autoDim));
+    $('setFlash').setAttribute('aria-checked', String(S.flash));
     $('startValue').textContent = DockLogic.formatHour(S.dimStart, S.hour12);
     $('endValue').textContent = DockLogic.formatHour(S.dimEnd, S.hour12);
     $('levelValue').textContent = S.dimLevel + '%';
@@ -354,6 +362,7 @@
   $('settingsClose').onclick = closeSettings;
   const actions = {
     setAuto: () => { S.autoDim = !S.autoDim; manual = null; },
+    setFlash: () => { S.flash = !S.flash; },
     levelMinus: () => { S.dimLevel = Math.max(10, S.dimLevel - 10); },
     levelPlus: () => { S.dimLevel = Math.min(80, S.dimLevel + 10); },
     startMinus: () => { S.dimStart = (S.dimStart + 23) % 24; },
@@ -434,15 +443,56 @@
   });
 
   // ---- battery: the Android app calls window.setBattery(level 0..1 or -1, charging, secondsToFull or -1) ----
-  window.setBattery = (level, charging, secsToFull) => {
+  let lastBattery = [-1, true, -1], eggRunning = false, lastFlashAgent = null;
+  function renderBattery() {
+    const [level, charging, secsToFull] = lastBattery;
     const t = DockLogic.batteryText(level, charging, secsToFull);
     const known = Number.isFinite(level) && level >= 0;
     $('pct').textContent = t.pct;
     $('battBig').textContent = t.big;
     $('battSub').textContent = t.sub;
     $('ringFill').style.strokeDashoffset = String(known ? 251.3 * (1 - Math.min(level, 1)) : 251.3);
+  }
+  window.setBattery = (level, charging, secsToFull) => {
+    lastBattery = [level, charging, secsToFull];
+    if (!eggRunning) renderBattery();   // a hidden effect may be showing; the newest reading appears when it ends
   };
   window.setBattery(-1, true, -1);
+
+  // ---- hidden: hold the battery tile for five seconds ----
+  // The ring fills to 100%, then one of the agents with a flash ability flashes the screen white, once, and everything returns.
+  function runEgg() {
+    eggRunning = true;
+    const f = DockLogic.pickFlash(Math.random(), lastFlashAgent);
+    lastFlashAgent = f.agent;
+    const full = DockLogic.batteryText(1, true, -1);
+    $('pct').textContent = full.pct; $('battBig').textContent = full.big; $('battSub').textContent = full.sub;
+    $('ringFill').style.strokeDashoffset = '0';
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;   // people who asked for less motion get no white flash
+    const flash = $('flash'), note = $('eggNote');
+    setTimeout(() => {
+      note.textContent = 'Flashed by ' + f.agent + ' \u00b7 ' + f.ability;
+      note.hidden = false;
+      if (!reduce) {
+        flash.style.transition = 'none';
+        flash.style.opacity = '1';
+        setTimeout(() => { flash.style.transition = 'opacity ' + f.fade + 'ms ease-out'; flash.style.opacity = '0'; }, f.hold);
+      }
+      setTimeout(() => { eggRunning = false; renderBattery(); }, reduce ? 1500 : f.hold + f.fade);
+      setTimeout(() => { note.hidden = true; }, 3500);
+    }, f.windup);
+  }
+  const battTile = $('battTile');
+  let eggTimer = null, eggX = 0, eggY = 0;
+  const cancelEgg = () => { clearTimeout(eggTimer); eggTimer = null; };
+  battTile.addEventListener('pointerdown', e => {
+    if (eggRunning || !S.flash) return;
+    eggX = e.clientX; eggY = e.clientY; cancelEgg();
+    eggTimer = setTimeout(() => { eggTimer = null; runEgg(); }, 5000);
+  });
+  battTile.addEventListener('pointermove', e => { if (eggTimer && Math.hypot(e.clientX - eggX, e.clientY - eggY) > 12) cancelEgg(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => battTile.addEventListener(t, cancelEgg));
+  battTile.addEventListener('contextmenu', e => e.preventDefault());
 
   // ---- keep the screen on (when the browser allows it) ----
   async function keepAwake() { try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch (e) {} }
