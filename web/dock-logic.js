@@ -82,13 +82,16 @@
     return '#' + (h.length === 3 ? h.split('').map(c => c + c).join('') : h);
   }
 
-  // An accent that is too dark to see on the dark tiles is lightened until it can be.
-  function visibleAccent(hex, minLuminance = 0.12) {
+  // An accent has to stay visible on the tiles. On the dark theme a too-dark colour is lightened;
+  // on the light theme a too-pale colour is darkened.
+  function visibleAccent(hex, theme = 'dark') {
     if (typeof hex !== 'string' || !HEX.test(hex)) return DEFAULT_ACCENT;
     const rgb = parseHex(hex);
     let out = hex.toLowerCase();
-    for (let t = 0.05; luminance(out) < minLuminance && t <= 1.0001; t += 0.05) {
-      out = toHex(...rgb.map(c => c + (255 - c) * t));
+    if (theme === 'light') {
+      for (let t = 0.05; luminance(out) > 0.27 && t <= 1.0001; t += 0.05) out = toHex(...rgb.map(c => c * (1 - t)));
+    } else {
+      for (let t = 0.05; luminance(out) < 0.12 && t <= 1.0001; t += 0.05) out = toHex(...rgb.map(c => c + (255 - c) * t));
     }
     return out;
   }
@@ -100,10 +103,11 @@
   }
 
   const FONTS = ['dot', 'mono', 'sans'];
+  const THEMES = ['dark', 'light', 'system'];
   const ACCENTS = ['#d71921', '#ffb25b', '#5be28c', '#4aa3ff', '#f4f3f0'];
   const DEFAULT_ACCENT = '#d71921';
   const DEFAULT_SETTINGS = {
-    font: 'dot', accent: '#d71921', hour12: false, autoDim: true,
+    font: 'dot', theme: 'dark', accent: '#d71921', hour12: false, autoDim: true,
     dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false,
   };
 
@@ -116,6 +120,7 @@
     const level = Number.isFinite(r.dimLevel) ? Math.min(80, Math.max(10, Math.round(r.dimLevel))) : d.dimLevel;
     return {
       font: FONTS.includes(r.font) ? r.font : d.font,
+      theme: THEMES.includes(r.theme) ? r.theme : d.theme,
       accent: typeof r.accent === 'string' && HEX.test(r.accent) ? r.accent.toLowerCase() : d.accent,
       hour12: bool(r.hour12, d.hour12),
       autoDim: bool(r.autoDim, d.autoDim),
@@ -127,7 +132,14 @@
     };
   }
 
-  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput };
+  // The palette actually shown. A dimmed screen is always dark: a light one would light up the room.
+  function resolveTheme(theme, systemDark, dimmed) {
+    if (dimmed) return 'dark';
+    if (theme === 'system') return systemDark ? 'dark' : 'light';
+    return theme === 'light' ? 'light' : 'dark';
+  }
+
+  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, THEMES };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.DockLogic = api;
 })(typeof window !== 'undefined' ? window : globalThis);

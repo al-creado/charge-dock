@@ -493,3 +493,55 @@ test('moving a slider updates the hex field', async () => {
   assert.equal(await page.inputValue('#customHex'), '#3399ff');
   await context.close();
 });
+
+const theme = page => page.evaluate(() => document.documentElement.dataset.theme);
+const bodyBg = page => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+
+test('theme setting switches the palette and survives a reload', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15) });
+  assert.equal(await theme(page), 'dark');
+  await page.click('#settingsBtn');
+  await page.click('[data-themeopt="light"]');
+  assert.equal(await theme(page), 'light');
+  assert.equal(await bodyBg(page), 'rgb(242, 242, 244)');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('settings')).backgroundColor), 'rgb(242, 242, 244)', 'settings sheet is light too');
+  await page.reload();
+  assert.equal(await theme(page), 'light');
+  await page.click('#settingsBtn');
+  assert.equal(await page.getAttribute('[data-themeopt="light"]', 'aria-pressed'), 'true');
+  await page.click('#resetSettings');
+  assert.equal(await theme(page), 'dark');
+  await context.close();
+});
+
+test('device default follows the phone, live', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), settings: { theme: 'system' } });
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark');
+  await page.evaluate(() => window.setSystemTheme(false));
+  assert.equal(await theme(page), 'light', 'the app can report the system theme directly');
+  await context.close();
+});
+
+test('a dimmed screen is dark even on the light theme, and returns to light after', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 23, 15), settings: { theme: 'light' } });
+  assert.equal(await theme(page), 'dark');
+  await page.click('#settingsBtn');
+  await page.click('#setAuto');
+  assert.equal(await theme(page), 'light');
+  await context.close();
+});
+
+test('night mode stays dark red on the light theme', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), settings: { theme: 'light', red: true } });
+  assert.equal(await bodyBg(page), 'rgb(6, 1, 2)');
+  await context.close();
+});
+
+test('pale accents are darkened on the light theme', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), settings: { theme: 'light', accent: '#ffb25b' } });
+  assert.notEqual(await accentVar(page), '#ffb25b');
+  await context.close();
+});

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput } = require('../dock-logic.js');
+const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme } = require('../dock-logic.js');
 
 const at = (y, m, d, h = 12, min = 0) => new Date(y, m - 1, d, h, min);
 
@@ -91,7 +91,7 @@ test('normalizeSettings returns defaults for missing or non-object input', () =>
     assert.deepEqual(normalizeSettings(bad), DEFAULT_SETTINGS);
   }
   assert.deepEqual(DEFAULT_SETTINGS, {
-    font: 'dot', accent: '#d71921', hour12: false, autoDim: true,
+    font: 'dot', theme: 'dark', accent: '#d71921', hour12: false, autoDim: true,
     dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false,
   });
 });
@@ -166,4 +166,30 @@ test('parseHexInput rejects anything that is not a hex colour', () => {
   for (const bad of ['', '#', '#12', '#12345', 'zzzzzz', '#3399ffaa', 'rgb(1,2,3)', null, undefined, 42]) {
     assert.equal(parseHexInput(bad), null, String(bad));
   }
+});
+
+test('normalizeSettings theme: dark by default, light and system allowed, junk rejected', () => {
+  assert.equal(normalizeSettings({}).theme, 'dark');
+  assert.equal(normalizeSettings({ theme: 'light' }).theme, 'light');
+  assert.equal(normalizeSettings({ theme: 'system' }).theme, 'system');
+  for (const bad of ['blue', '', 7, null, 'DARK']) assert.equal(normalizeSettings({ theme: bad }).theme, 'dark', String(bad));
+});
+
+test('resolveTheme follows the setting, the device, and dimming', () => {
+  assert.equal(resolveTheme('dark', false, false), 'dark');
+  assert.equal(resolveTheme('light', true, false), 'light');
+  assert.equal(resolveTheme('system', true, false), 'dark');
+  assert.equal(resolveTheme('system', false, false), 'light');
+  // A dimmed screen is always dark: a light screen would light up the room.
+  assert.equal(resolveTheme('light', false, true), 'dark');
+  assert.equal(resolveTheme('system', false, true), 'dark');
+});
+
+test('visibleAccent on the light theme darkens colours that would wash out', () => {
+  assert.equal(visibleAccent('#d71921', 'light'), '#d71921');
+  assert.equal(visibleAccent('#000000', 'light'), '#000000');
+  for (const pale of ['#ffb25b', '#5be28c', '#f4f3f0', '#ffffff']) {
+    assert.ok(luminance(visibleAccent(pale, 'light')) <= 0.27, pale);
+  }
+  assert.equal(visibleAccent('#ffb25b', 'dark'), '#ffb25b');
 });
