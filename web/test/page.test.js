@@ -768,3 +768,57 @@ test('a battery reading that arrives during the effect does not break it', async
   assert.equal(await pct(page), '83%', 'then the newest reading is shown');
   await context.close();
 });
+
+// ---- even spacing ----
+// Every outer margin and every gap between tiles should be the same value.
+const settled = page => page.evaluate(() => Promise.all(document.getAnimations().filter(a => a.effect && a.effect.getTiming().iterations !== Infinity).map(a => a.finished)));
+const spacing = async page => { await settled(page); return page.evaluate(() => {
+  const r = el => el.getBoundingClientRect();
+  const q = s => document.querySelector(s);
+  const clock = r(q('.tile.clock')), tiles = [...document.querySelectorAll('.tiles .page:not([hidden]) .tile')].map(r);
+  const bottom = r(q('.bottom')), W = innerWidth, H = innerHeight;
+  const rightmost = Math.max(...tiles.map(t => t.right)), lowest = Math.max(clock.bottom, ...tiles.map(t => t.bottom));
+  const out = { left: clock.left, right: W - rightmost, top: Math.min(clock.top, ...tiles.map(t => t.top)), bottomBar: H - bottom.bottom, aboveBar: bottom.top - lowest };
+  const landscape = clock.right < tiles[0].left;
+  if (landscape) out.clockToTiles = tiles[0].left - clock.right; else out.clockToTiles = tiles[0].top - clock.bottom;
+  if (tiles.length > 1) {
+    out.tileRow = tiles[1].top - tiles[0].bottom;
+    if (tiles.length > 2) out.tileColumn = tiles[2].left - tiles[1].right;
+  }
+  return out;
+}); };
+
+for (const [w, h] of [[915, 412], [412, 915], [800, 360], [360, 800]]) {
+  test(`spacing is even on page one at ${w}x${h}`, async () => {
+    const { page, context } = await open({ width: w, height: h, time: new Date(2026, 10, 17, 12, 15) });
+    await page.evaluate(() => document.fonts.ready);
+    const sp = await spacing(page);
+    const values = Object.values(sp);
+    const spread = Math.max(...values) - Math.min(...values);
+    assert.ok(spread <= 1, `spacing differs by ${spread.toFixed(1)}px: ${JSON.stringify(Object.fromEntries(Object.entries(sp).map(([k, v]) => [k, +v.toFixed(1)])))}`);
+    assert.ok(Math.min(...values) >= 8, 'spacing is not cramped');
+    await page.click('.dots [data-page="1"]');
+    const sp2 = await spacing(page);
+    const v2 = Object.values(sp2);
+    assert.ok(Math.max(...v2) - Math.min(...v2) <= 1, `page two spacing differs: ${JSON.stringify(sp2)}`);
+    await context.close();
+  });
+}
+
+test('tile padding is the same on every side', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15) });
+  const pads = await page.evaluate(() => [...document.querySelectorAll('.tiles .page:not([hidden]) .tile')].map(t => {
+    const s = getComputedStyle(t); return [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft].map(parseFloat);
+  }));
+  for (const p of pads) assert.ok(Math.max(...p) - Math.min(...p) < 0.5, JSON.stringify(p));
+  assert.ok(Math.max(...pads.flat()) - Math.min(...pads.flat()) < 0.5, 'all tiles share one padding');
+  await context.close();
+});
+
+test('settings rows have the same gap across and down', async () => {
+  const { page, context } = await open({ width: 915, height: 412 });
+  await page.click('#settingsBtn');
+  const g = await page.evaluate(() => { const s = getComputedStyle(document.querySelector('.rows')); return [parseFloat(s.rowGap), parseFloat(s.columnGap)]; });
+  assert.equal(g[0], g[1]);
+  await context.close();
+});
