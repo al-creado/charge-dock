@@ -21,6 +21,7 @@ test('weekStrip Tuesday: Monday first, today marked', () => {
   const w = weekStrip(at(2026, 11, 17));
   assert.deepEqual(w.map(d => d.day), [16, 17, 18, 19, 20, 21, 22]);
   assert.equal(w.map(d => d.letter).join(''), 'MTWTFSS');
+  assert.deepEqual(w.map(d => d.name), ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
   assert.deepEqual(w.map(d => d.state), ['past', 'today', 'future', 'future', 'future', 'future', 'future']);
 });
 

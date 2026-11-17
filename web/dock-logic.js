@@ -6,6 +6,7 @@
   }
 
   const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // index = Date#getDay()
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   // Seven days for the week that contains `now`. weekStart: 1 = Monday first (default), 0 = Sunday first.
   function weekStrip(now, weekStart = 1) {
@@ -16,7 +17,7 @@
       const d = new Date(first);
       d.setDate(first.getDate() + i);
       const state = d.getTime() === today.getTime() ? 'today' : (d < today ? 'past' : 'future');
-      return { letter: DAY_LETTERS[d.getDay()], day: d.getDate(), state };
+      return { letter: DAY_LETTERS[d.getDay()], name: DAY_NAMES[d.getDay()], day: d.getDate(), state };
     });
   }
 

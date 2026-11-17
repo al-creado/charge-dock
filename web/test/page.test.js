@@ -357,3 +357,60 @@ test('the colour picker fits on small landscape screens', async () => {
   assert.ok(closeBox.y >= 0 && closeBox.y + closeBox.height <= 360, 'close stays reachable');
   await context.close();
 });
+
+// How much of its tile each right-hand tile's content uses, and whether anything is clipped.
+const measureTiles = page => page.evaluate(() => [...document.querySelectorAll('.tiles .page:not([hidden]) .tile')].map(tile => {
+  const t = tile.getBoundingClientRect();
+  const label = tile.querySelector('.label').getBoundingClientRect();
+  const content = tile.lastElementChild.getBoundingClientRect();
+  return {
+    name: tile.querySelector('.label').textContent.trim(),
+    fill: content.height / (t.height - label.height),
+    clipped: tile.scrollHeight > tile.clientHeight + 1 || tile.scrollWidth > tile.clientWidth + 1,
+    inside: content.bottom <= t.bottom + 1 && content.right <= t.right + 1,
+  };
+}));
+
+for (const [w, h] of [[412, 915], [360, 800], [915, 412], [800, 360]]) {
+  test(`tiles use their space at ${w}x${h}`, async () => {
+    const { page, context } = await open({ width: w, height: h, time: new Date(2026, 10, 17, 12, 15) });
+    await page.evaluate(() => window.setBattery(0.82, true, 2280));
+    await page.evaluate(() => document.fonts.ready);
+    for (const tile of await measureTiles(page)) {
+      assert.equal(tile.clipped, false, `${tile.name} is not clipped`);
+      assert.equal(tile.inside, true, `${tile.name} content stays inside`);
+      const need = tile.name.startsWith('Battery') ? 0.5 : 0.35;
+      assert.ok(tile.fill >= need, `${tile.name} content fills ${Math.round(tile.fill * 100)}% (needs ${need * 100}%)`);
+    }
+    await page.click('.dots [data-page="1"]');
+    for (const tile of await measureTiles(page)) {
+      assert.equal(tile.clipped, false, `${tile.name} is not clipped`);
+      assert.ok(tile.fill >= 0.6, `${tile.name} content fills ${Math.round(tile.fill * 100)}% (needs 60%)`);
+    }
+    await context.close();
+  });
+}
+
+test('date tile shows the weekday and the month', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15) });
+  assert.equal(await page.textContent('#dayNum'), '17');
+  assert.equal(await page.textContent('#dayName'), 'Tuesday');
+  assert.equal(await page.textContent('#dayMonth'), 'November 2026');
+  await context.close();
+});
+
+for (const [w, h] of [[412, 915], [360, 800], [915, 412], [800, 360]]) {
+  test(`clock tile is tall enough for its digits at ${w}x${h}`, async () => {
+    const { page, context } = await open({ width: w, height: h, time: new Date(2026, 10, 17, 12, 15) });
+    await page.evaluate(() => document.fonts.ready);
+    const r = await page.evaluate(() => {
+      const c = document.querySelector('.tile.clock').getBoundingClientRect();
+      const t = document.querySelector('.time').getBoundingClientRect();
+      const d = document.querySelector('.date').getBoundingClientRect();
+      return { tileH: c.height, inside: t.top >= c.top - 1 && d.bottom <= c.bottom + 1 };
+    });
+    assert.ok(r.tileH > 100, `clock tile has height (${Math.round(r.tileH)}px)`);
+    assert.equal(r.inside, true, 'digits and date are inside the clock tile');
+    await context.close();
+  });
+}
