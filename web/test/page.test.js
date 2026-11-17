@@ -655,6 +655,7 @@ for (const hour12 of [false, true]) {
 }
 
 // ---- hidden: hold the battery tile for five seconds ----
+const HOLD = 2000, CHARGE = 2500;   // hold for 2 s, then the ring charges up for 2.5 s
 const randomZero = () => { Math.random = () => 0; };
 const flashStyle = page => page.evaluate(() => document.getElementById('flash').style.opacity);
 const pct = page => page.textContent('#pct');
@@ -668,26 +669,31 @@ const press = async (page, selector) => {
 const agent = page => page.evaluate(() => document.getElementById('flash').dataset.agent || '');
 const orbShown = page => page.evaluate(() => !document.getElementById('orb').hidden);
 
-test('holding the battery tile for five seconds fills the ring, an orb flies in, the screen flashes, then it returns to normal', async () => {
+test('holding the battery tile for two seconds charges the ring to 100%, an orb flies in, the screen flashes, then it returns to normal', async () => {
   const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
   await page.evaluate(() => window.setBattery(0.82, true, 2280));
   await press(page, '#battTile');
-  await page.clock.runFor(4900);
-  assert.equal(await pct(page), '82%', 'nothing happens before five seconds');
+  await page.clock.runFor(HOLD - 100);
+  assert.equal(await pct(page), '82%', 'nothing happens before two seconds');
   assert.equal(await orbShown(page), false);
+  await page.clock.runFor(1100);                       // 1.0 s into the charge-up
+  const mid = parseInt(await pct(page), 10);
+  assert.ok(mid > 82 && mid < 100, `the percentage is climbing (${mid}%)`);
+  assert.notEqual(await page.textContent('#battSub'), 'Fully flashed', 'not full yet');
+  assert.equal(await orbShown(page), false, 'no orb until the ring is full');
   assert.equal(await flashStyle(page), '0');
-  await page.clock.runFor(200);
-  assert.equal(await pct(page), '100%', 'ring jumps to full after five seconds');
+  await page.clock.runFor(CHARGE - 1000 + 100);         // just past full
+  assert.equal(await pct(page), '100%', 'the ring reaches 100%');
   assert.equal(await page.textContent('#battSub'), 'Fully flashed');
   assert.equal(await agent(page), 'phoenix');
   assert.equal(await orbShown(page), true, 'the orb is in flight');
   assert.equal(await flashStyle(page), '0', 'the flash is still winding up');
-  await page.clock.runFor(800);   // Phoenix: 700 ms windup
+  await page.clock.runFor(800);                         // Phoenix: 700 ms windup
   assert.equal(await flashStyle(page), '1', 'full white');
   assert.equal(await orbShown(page), false, 'the orb has popped');
   assert.equal(await page.evaluate(() => document.getElementById('flash').style.getPropertyValue('--tint')), '#ff7a1a');
-  await page.clock.runFor(400);   // hold
-  await page.clock.runFor(2000);  // fade and recovery
+  await page.clock.runFor(400);                         // hold
+  await page.clock.runFor(2000);                        // fade and recovery
   assert.equal(await flashStyle(page), '0', 'back to normal');
   assert.equal(await pct(page), '82%', 'the real battery level returns');
   assert.equal(await page.textContent('#battSub'), 'Full in about 38 min', 'and its text');
@@ -702,7 +708,7 @@ for (const [i, id, tint, windup] of [[0, 'phoenix', '#ff7a1a', 700], [1, 'breach
     await page.evaluate(n => { window.name = String(n); }, i);
     await page.evaluate(() => window.setBattery(0.82, true, 2280));
     await press(page, '#battTile');
-    await page.clock.runFor(5000 + windup + 50);   // just after this agent's windup, while the screen is white
+    await page.clock.runFor(HOLD + CHARGE + windup + 50);   // just after this agent's windup, while the screen is white
     assert.equal(await agent(page), id);
     assert.equal(await flashStyle(page), '1');
     assert.equal(await page.evaluate(() => document.getElementById('flash').style.getPropertyValue('--tint')), tint);
@@ -714,15 +720,15 @@ for (const [i, id, tint, windup] of [[0, 'phoenix', '#ff7a1a', 700], [1, 'breach
 test('releasing early, moving away, or other tiles do nothing', async () => {
   const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
   await page.evaluate(() => window.setBattery(0.82, true, 2280));
-  // each check is made 5.3 s after pressing, when the effect would be on screen
-  await press(page, '#battTile'); await page.clock.runFor(3000); await page.mouse.up(); await page.clock.runFor(2300);
+  // each check is made 2.5 s after pressing, when the charge-up would be under way
+  await press(page, '#battTile'); await page.clock.runFor(1000); await page.mouse.up(); await page.clock.runFor(1500);
   assert.equal(await pct(page), '82%', 'released early');
   await page.clock.runFor(5000);
   const { x, y } = await press(page, '#battTile');
-  await page.clock.runFor(1000); await page.mouse.move(x + 60, y + 40); await page.clock.runFor(4300);
+  await page.clock.runFor(500); await page.mouse.move(x + 60, y + 40); await page.clock.runFor(2000);
   assert.equal(await pct(page), '82%', 'moved away');
   await page.mouse.up(); await page.clock.runFor(5000);
-  await press(page, '#page0 .tile:nth-child(2)'); await page.clock.runFor(5300);
+  await press(page, '#page0 .tile:nth-child(2)'); await page.clock.runFor(2500);
   assert.equal(await pct(page), '82%', 'a different tile');
   assert.equal(await flashStyle(page), '0');
   await page.mouse.up();
@@ -739,10 +745,10 @@ test('the flash overlay and the orb never block touches', async () => {
 test('the same agent never flashes twice in a row', async () => {
   const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
   await page.evaluate(() => window.setBattery(0.82, true, 2280));
-  await press(page, '#battTile'); await page.clock.runFor(5000 + 300); await page.mouse.up();
+  await press(page, '#battTile'); await page.clock.runFor(HOLD + CHARGE + 300); await page.mouse.up();
   assert.equal(await agent(page), 'phoenix', 'the first agent');
-  await page.clock.runFor(5000);
-  await press(page, '#battTile'); await page.clock.runFor(5000 + 400); await page.mouse.up();
+  await page.clock.runFor(6000);
+  await press(page, '#battTile'); await page.clock.runFor(HOLD + CHARGE + 400); await page.mouse.up();
   assert.equal(await agent(page), 'breach', 'a different agent the second time');
   await context.close();
 });
@@ -750,9 +756,9 @@ test('the same agent never flashes twice in a row', async () => {
 test('with visual effects turned down, holding does nothing', async () => {
   const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero, settings: { reduceEffects: true } });
   await page.evaluate(() => window.setBattery(0.82, true, 2280));
-  await press(page, '#battTile'); await page.clock.runFor(5300);
-  assert.equal(await pct(page), '82%', 'ring does not jump to full');
-  await page.clock.runFor(600);   // where the white flash would be
+  await press(page, '#battTile'); await page.clock.runFor(HOLD + 300);
+  assert.equal(await pct(page), '82%', 'the ring does not charge up');
+  await page.clock.runFor(CHARGE + 800);   // where the white flash would be
   assert.equal(await flashStyle(page), '0');
   assert.equal(await orbShown(page), false);
   await page.mouse.up();
@@ -763,9 +769,9 @@ test('with reduce-motion on, the ring still fills but the screen never goes whit
   const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.evaluate(() => window.setBattery(0.82, true, 2280));
-  await press(page, '#battTile'); await page.clock.runFor(5200);
+  await press(page, '#battTile'); await page.clock.runFor(HOLD + CHARGE + 200);
   assert.equal(await pct(page), '100%');
-  await page.clock.runFor(700);   // 5.9 s: where the Phoenix flash is at full white
+  await page.clock.runFor(700);   // where the Phoenix flash would be at full white
   assert.equal(await flashStyle(page), '0', 'no white flash');
   assert.equal(await orbShown(page), false, 'and no flying orb');
   await page.mouse.up();
@@ -787,7 +793,7 @@ test('the turn-down-effects switch is off by default, can be turned on, and is r
 test('a battery reading that arrives during the effect does not break it', async () => {
   const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
   await page.evaluate(() => window.setBattery(0.82, true, 2280));
-  await press(page, '#battTile'); await page.clock.runFor(5200);
+  await press(page, '#battTile'); await page.clock.runFor(HOLD + CHARGE + 200);
   await page.evaluate(() => window.setBattery(0.83, true, 2200));
   assert.equal(await pct(page), '100%', 'the effect keeps the ring full');
   await page.clock.runFor(6000); await page.mouse.up();

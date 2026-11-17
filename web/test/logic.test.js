@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, FLASHES, pickFlash } = require('../dock-logic.js');
+const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, FLASHES, pickFlash, EGG, chargePercent } = require('../dock-logic.js');
 
 const at = (y, m, d, h = 12, min = 0) => new Date(y, m - 1, d, h, min);
 
@@ -253,4 +253,20 @@ test('every flash has an id, a tint colour and a flight path that ends at the sc
     assert.deepEqual([last[0], last[1]], [50, 50], `${f.id} ends in the centre`);
   }
   assert.equal(new Set(FLASHES.map(f => f.tint)).size, FLASHES.length, 'each agent has its own colour');
+});
+
+test('the hold is two seconds and the charge-up takes longer than that', () => {
+  assert.equal(EGG.holdMs, 2000);
+  assert.equal(EGG.chargeMs, 2500);
+});
+
+test('chargePercent counts from the real level up to 100 over the charge time', () => {
+  assert.equal(chargePercent(0.82, 0, 2500), 82);
+  assert.equal(chargePercent(0.82, 1250, 2500), 91);
+  assert.equal(chargePercent(0.82, 2500, 2500), 100);
+  assert.equal(chargePercent(0.82, 9000, 2500), 100, 'never past 100');
+  assert.equal(chargePercent(0.82, -50, 2500), 82, 'never below the start');
+  assert.equal(chargePercent(-1, 1250, 2500), 50, 'an unknown level counts from 0');
+  assert.equal(chargePercent(NaN, 2500, 2500), 100);
+  assert.equal(chargePercent(1, 0, 2500), 100);
 });

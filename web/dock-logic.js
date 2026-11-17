@@ -124,6 +124,16 @@
       points: [[50, 108], [50, 50]] },                                              // thrown straight up
   ];
 
+  // The hidden effect: hold the battery tile for holdMs, then the ring charges up over chargeMs.
+  const EGG = { holdMs: 2000, chargeMs: 2500 };
+
+  // The percentage shown while the ring charges up: from the real level to 100 over chargeMs.
+  function chargePercent(level, elapsedMs, chargeMs) {
+    const start = Number.isFinite(level) && level >= 0 ? Math.min(level, 1) * 100 : 0;
+    const t = Math.min(Math.max(elapsedMs / chargeMs, 0), 1);
+    return Math.round(start + (100 - start) * t);
+  }
+
   // rand is a number in [0, 1). Never returns lastAgent, so the same flash does not come twice in a row.
   function pickFlash(rand, lastAgent) {
     const pool = FLASHES.filter(f => f.agent !== lastAgent);
@@ -169,7 +179,7 @@
     return theme === 'light' ? 'light' : 'dark';
   }
 
-  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, THEMES, FLASHES, pickFlash };
+  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, THEMES, FLASHES, pickFlash, EGG, chargePercent };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.DockLogic = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -468,20 +468,29 @@
   };
   window.setBattery(-1, true, -1);
 
-  // ---- hidden: hold the battery tile for five seconds ----
-  // The ring fills to 100%, then one of the agents with a flash ability flashes the screen white, once, and everything returns.
+  // ---- hidden: hold the battery tile for two seconds ----
+  // The ring charges up to 100%, then one of the agents with a flash ability flashes the screen white, once, and everything returns.
   function runEgg() {
     eggRunning = true;
     const f = DockLogic.pickFlash(Math.random(), lastFlashAgent);
     lastFlashAgent = f.agent;
-    const full = DockLogic.batteryText(1, true, -1);
-    $('pct').textContent = full.pct; $('battBig').textContent = full.big; $('battSub').textContent = 'Fully flashed';
-    $('ringFill').style.strokeDashoffset = '0';
-    // People who asked for less motion get the ring and nothing else: no flying orb, no white flash.
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setTimeout(() => { eggRunning = false; renderBattery(); }, 1500);
-      return;
-    }
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;   // people who asked for less motion get no orb and no white flash
+    const ring = $('ringFill'), start = lastBattery[0], { chargeMs } = DockLogic.EGG;
+    // 1. the ring charges up slowly, the percentage counting with it
+    ring.style.transition = 'stroke-dashoffset ' + chargeMs + 'ms linear';
+    ring.style.strokeDashoffset = '0';
+    let elapsed = 0;
+    const counter = setInterval(() => {
+      elapsed += 50;
+      $('pct').textContent = DockLogic.chargePercent(start, elapsed, chargeMs) + '%';
+      if (elapsed < chargeMs) return;
+      clearInterval(counter);
+      const full = DockLogic.batteryText(1, true, -1);
+      $('pct').textContent = full.pct; $('battBig').textContent = full.big; $('battSub').textContent = 'Fully flashed';
+      reduce ? setTimeout(endEgg, 1500) : flashPhase(f);
+    }, 50);
+  }
+  function flashPhase(f) {
     const flash = $('flash'), orb = $('orb');
     flash.dataset.agent = f.id;
     flash.style.setProperty('--tint', f.tint);
@@ -493,12 +502,17 @@
         { duration: f.windup, easing: 'ease-in', fill: 'forwards' });
     }
     setTimeout(() => {
-      orb.hidden = true;                      // the orb pops...
+      orb.hidden = true;                      // 2. the orb pops...
       flash.style.transition = 'none';
       flash.style.opacity = '1';              // ...and the screen goes white once
       setTimeout(() => { flash.style.transition = 'opacity ' + f.fade + 'ms ease-out'; flash.style.opacity = '0'; }, f.hold);
-      setTimeout(() => { delete flash.dataset.agent; eggRunning = false; renderBattery(); }, f.hold + f.fade);
+      setTimeout(() => { delete flash.dataset.agent; endEgg(); }, f.hold + f.fade);
     }, f.windup);
+  }
+  function endEgg() {
+    $('ringFill').style.transition = '';
+    eggRunning = false;
+    renderBattery();
   }
   const battTile = $('battTile');
   let eggTimer = null, eggX = 0, eggY = 0;
@@ -506,7 +520,7 @@
   battTile.addEventListener('pointerdown', e => {
     if (eggRunning || S.reduceEffects) return;
     eggX = e.clientX; eggY = e.clientY; cancelEgg();
-    eggTimer = setTimeout(() => { eggTimer = null; runEgg(); }, 5000);
+    eggTimer = setTimeout(() => { eggTimer = null; runEgg(); }, DockLogic.EGG.holdMs);
   });
   battTile.addEventListener('pointermove', e => { if (eggTimer && Math.hypot(e.clientX - eggX, e.clientY - eggY) > 12) cancelEgg(); });
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => battTile.addEventListener(t, cancelEgg));
