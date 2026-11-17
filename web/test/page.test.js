@@ -678,6 +678,7 @@ test('holding the battery tile for five seconds fills the ring, an orb flies in,
   assert.equal(await flashStyle(page), '0');
   await page.clock.runFor(200);
   assert.equal(await pct(page), '100%', 'ring jumps to full after five seconds');
+  assert.equal(await page.textContent('#battSub'), 'Fully flashed');
   assert.equal(await agent(page), 'phoenix');
   assert.equal(await orbShown(page), true, 'the orb is in flight');
   assert.equal(await flashStyle(page), '0', 'the flash is still winding up');
@@ -689,6 +690,7 @@ test('holding the battery tile for five seconds fills the ring, an orb flies in,
   await page.clock.runFor(2000);  // fade and recovery
   assert.equal(await flashStyle(page), '0', 'back to normal');
   assert.equal(await pct(page), '82%', 'the real battery level returns');
+  assert.equal(await page.textContent('#battSub'), 'Full in about 38 min', 'and its text');
   assert.equal(await agent(page), '', 'the effect is cleared');
   await page.mouse.up();
   await context.close();
@@ -817,12 +819,15 @@ for (const [w, h] of [[915, 412], [412, 915], [800, 360], [360, 800]]) {
     const { page, context } = await open({ width: w, height: h, time: new Date(2026, 10, 17, 12, 15) });
     await page.evaluate(() => document.fonts.ready);
     const sp = await spacing(page);
+    const portrait = w < h;
+    if (portrait) { assert.ok(sp.top >= 28, `portrait leaves room at the top (${sp.top.toFixed(1)}px)`); delete sp.top; }
     const values = Object.values(sp);
     const spread = Math.max(...values) - Math.min(...values);
     assert.ok(spread <= 1, `spacing differs by ${spread.toFixed(1)}px: ${JSON.stringify(Object.fromEntries(Object.entries(sp).map(([k, v]) => [k, +v.toFixed(1)])))}`);
     assert.ok(Math.min(...values) >= 8, 'spacing is not cramped');
     await page.click('.dots [data-page="1"]');
     const sp2 = await spacing(page);
+    if (portrait) delete sp2.top;
     const v2 = Object.values(sp2);
     assert.ok(Math.max(...v2) - Math.min(...v2) <= 1, `page two spacing differs: ${JSON.stringify(sp2)}`);
     await context.close();
@@ -888,3 +893,28 @@ test('tapping never shows the browser tap-highlight overlay (the blue layer on A
   for (const c of inside) assert.equal(c, 'rgba(0, 0, 0, 0)');
   await context.close();
 });
+
+test('the exit hint shows inside the app and stays hidden in a plain browser', async () => {
+  let o = await open({ init: hostStub });
+  assert.equal(await o.page.isVisible('#exitHint'), true);
+  assert.match(await o.page.textContent('#exitHint'), /Hold the clock to exit/);
+  await o.context.close();
+  o = await open();
+  assert.equal(await o.page.isVisible('#exitHint'), false);
+  await o.context.close();
+});
+
+for (const [w, h] of [[412, 915], [360, 800], [915, 412]]) {
+  test(`the exit hint fits beside the dots and buttons at ${w}x${h}`, async () => {
+    const { page, context } = await open({ width: w, height: h, init: hostStub });
+    const r = await page.evaluate(() => {
+      const hint = document.getElementById('exitHint'), dots = document.querySelector('.dots').getBoundingClientRect();
+      const b = hint.getBoundingClientRect();
+      return { overlapsDots: b.right > dots.left + 1, clipped: hint.scrollWidth > hint.clientWidth + 1, height: b.height, left: b.left };
+    });
+    assert.equal(r.overlapsDots, false, 'does not run into the page dots');
+    assert.equal(r.clipped, false);
+    assert.ok(r.height < 40, `at most two short lines (${r.height}px)`);
+    await context.close();
+  });
+}

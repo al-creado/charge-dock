@@ -1,5 +1,6 @@
 package app.chargedock
 
+import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.service.dreams.DreamService
 import android.webkit.WebView
@@ -13,6 +14,12 @@ class DockDreamService : DreamService() {
         super.onAttachedToWindow()
         isInteractive = true   // taps reach the page (Night, Dim, Settings)
         isFullscreen = true
+        // Ask for landscape even if the phone's rotation is locked to portrait. Android may or may not honour this for screen savers.
+        window?.let { w ->
+            val attrs = w.attributes
+            attrs.screenOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            w.attributes = attrs
+        }
         val view = DockWebViewFactory.create(
             this,
             onPageLoaded = { feed?.onPageLoaded() },
