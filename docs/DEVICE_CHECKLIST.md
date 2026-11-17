@@ -9,13 +9,13 @@ Tick each line pass or fail. Any fail is a bug to report.
 - [ ] **Open dock** shows the dock full screen and the screen stays on.
 - [ ] The battery tile shows the real percentage and says **Charging** when plugged in.
 - [ ] Rotating the phone keeps the layout intact in both directions.
-- [ ] With rotation locked to portrait, **Open dock** still opens in landscape.
+- [ ] **Open dock** follows the phone: stand it up for portrait, turn it sideways for landscape, even with rotation locked.
 
 ## Screen saver
 - [ ] **Screen saver settings** opens a page where Charge Dock can be chosen. If not, note what opened instead.
 - [ ] With the screen saver set to **While charging**, plugging in and letting the screen time out shows the dock.
 - [ ] The battery percentage on the dock matches the phone.
-- [ ] With rotation locked to portrait, the screen saver also comes up in landscape. (Android may ignore the request for screen savers; if so, tell me.)
+- [ ] The screen saver also follows the phone's orientation. (Android may ignore the request for screen savers; if so, tell me.)
 - [ ] With the phone locked, then plugged in, the dock appears over the lock screen after the screen times out.
 - [ ] The line "Hold the clock to exit" shows at the bottom left.
 - [ ] Unplugging leaves the dock.

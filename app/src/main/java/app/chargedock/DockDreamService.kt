@@ -15,10 +15,10 @@ class DockDreamService : DreamService() {
         super.onAttachedToWindow()
         isInteractive = true   // taps reach the page (Night, Dim, Settings)
         isFullscreen = true
-        // Ask for landscape even if the phone's rotation is locked to portrait. Android may or may not honour this for screen savers.
+        // Follow the phone's real orientation (portrait or landscape) even if its rotation lock is on. Android may or may not honour this for screen savers.
         window?.let { w ->
             val attrs = w.attributes
-            attrs.screenOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            attrs.screenOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
             w.attributes = attrs
         }
         val view = DockWebViewFactory.create(
