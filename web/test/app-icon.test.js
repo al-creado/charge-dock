@@ -45,3 +45,24 @@ test('monochrome layer has the same dots in one colour', () => {
   assert.equal(dots(mono).length, dots(read('drawable/ic_launcher_foreground.xml')).length);
   assert.equal(new Set([...mono.matchAll(/fillColor="([^"]+)"/g)].map(m => m[1])).size, 1, 'a single fill colour');
 });
+
+// ---- the picture shown on the screen saver card in Android's Screen saver picker ----
+const root = path.resolve(__dirname, '..', '..', 'app', 'src', 'main');
+test('the screen saver declares a preview image that exists', () => {
+  const manifest = fs.readFileSync(path.join(root, 'AndroidManifest.xml'), 'utf8');
+  const service = manifest.slice(manifest.indexOf('android:name=".DockDreamService"'));
+  assert.match(service, /<meta-data\s+android:name="android\.service\.dream"\s+android:resource="@xml\/dream_info"/);
+  const info = fs.readFileSync(path.join(root, 'res', 'xml', 'dream_info.xml'), 'utf8');
+  assert.match(info, /android:previewImage="@drawable\/dream_preview"/);
+  assert.ok(fs.existsSync(path.join(root, 'res', 'drawable-nodpi', 'dream_preview.png')), 'dream_preview.png exists');
+});
+
+test('the preview image is a real PNG, square-ish, sharp enough and not huge', () => {
+  const file = path.join(root, 'res', 'drawable-nodpi', 'dream_preview.png');
+  const b = fs.readFileSync(file);
+  assert.equal(b.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'PNG signature');
+  const w = b.readUInt32BE(16), h = b.readUInt32BE(20);
+  assert.ok(w >= 480 && h >= 480, `big enough (${w}x${h})`);
+  assert.ok(Math.abs(w / h - 1) <= 0.1, `about square (${w}x${h})`);
+  assert.ok(b.length < 400 * 1024, `small file (${Math.round(b.length / 1024)} KB)`);
+});
