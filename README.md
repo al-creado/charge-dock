@@ -6,7 +6,7 @@ Built for the Nothing Phone (1), and it should run on any Android 8 or newer pho
 
 ## Get the app
 
-1. Open the **Actions** tab of this repository and pick the latest successful **build** run.
+1. Open the **Actions** tab of this repository and pick the latest successful **build** run (one runs on every merge to `main`).
 2. Download the artifact **charge-dock-debug-apk** and unzip it. It contains `app-debug.apk`.
 3. Copy the APK to your phone, open it, and allow installing from that app when Android asks.
 
@@ -46,5 +46,6 @@ Preview keeps the screen on while it is showing.
 - `web/` is the dock page, plain HTML, CSS and JavaScript, with its fonts bundled. `app/` is the Android
   app that hosts it in a `WebView` and runs it as a screen saver. The page is copied into the app at build time.
 - Page tests: `NODE_PATH=$(npm root -g) node --test "web/test/*.test.js"` (needs Playwright).
-- GitHub Actions runs the page tests, the Android unit tests, and builds the debug APK on every push.
+- GitHub Actions runs the page tests, the Android unit tests, and builds the debug APK whenever something is merged to `main`.
+  To build another branch by hand, open the Actions tab, choose **build**, and use **Run workflow**.
 - Design: `docs/superpowers/specs/`. Plan: `docs/superpowers/plans/`.

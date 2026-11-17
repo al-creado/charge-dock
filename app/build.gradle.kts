@@ -15,16 +15,6 @@ android {
         versionName = "0.1.0"
     }
 
-    // A fixed debug key, so a newer APK installs over an older one and keeps the owner's settings.
-    signingConfigs {
-        getByName("debug") {
-            storeFile = file("debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
-        }
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
