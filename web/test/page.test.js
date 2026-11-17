@@ -665,26 +665,49 @@ const press = async (page, selector) => {
   return { x, y };
 };
 
-test('holding the battery tile for five seconds fills the ring, then flashes white, then returns to normal', async () => {
+const agent = page => page.evaluate(() => document.getElementById('flash').dataset.agent || '');
+const orbShown = page => page.evaluate(() => !document.getElementById('orb').hidden);
+
+test('holding the battery tile for five seconds fills the ring, an orb flies in, the screen flashes, then it returns to normal', async () => {
   const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
   await page.evaluate(() => window.setBattery(0.82, true, 2280));
   await press(page, '#battTile');
   await page.clock.runFor(4900);
   assert.equal(await pct(page), '82%', 'nothing happens before five seconds');
+  assert.equal(await orbShown(page), false);
   assert.equal(await flashStyle(page), '0');
   await page.clock.runFor(200);
   assert.equal(await pct(page), '100%', 'ring jumps to full after five seconds');
+  assert.equal(await agent(page), 'phoenix');
+  assert.equal(await orbShown(page), true, 'the orb is in flight');
   assert.equal(await flashStyle(page), '0', 'the flash is still winding up');
   await page.clock.runFor(800);   // Phoenix: 700 ms windup
   assert.equal(await flashStyle(page), '1', 'full white');
-  assert.match(await page.textContent('#eggNote'), /Phoenix.*Curveball/);
+  assert.equal(await orbShown(page), false, 'the orb has popped');
+  assert.equal(await page.evaluate(() => document.getElementById('flash').style.getPropertyValue('--tint')), '#ff7a1a');
   await page.clock.runFor(400);   // hold
   await page.clock.runFor(2000);  // fade and recovery
   assert.equal(await flashStyle(page), '0', 'back to normal');
   assert.equal(await pct(page), '82%', 'the real battery level returns');
+  assert.equal(await agent(page), '', 'the effect is cleared');
   await page.mouse.up();
   await context.close();
 });
+
+for (const [i, id, tint, windup] of [[0, 'phoenix', '#ff7a1a', 700], [1, 'breach', '#ffb21e', 350], [2, 'yoru', '#4a7dff', 900], [3, 'skye', '#4be08a', 550], [4, 'kayo', '#2fd0ff', 500]]) {
+  test(`${id} flashes with its own colour`, async () => {
+    const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: () => { Math.random = () => 0.1 + 0.2 * Number(window.name || 0); } });
+    await page.evaluate(n => { window.name = String(n); }, i);
+    await page.evaluate(() => window.setBattery(0.82, true, 2280));
+    await press(page, '#battTile');
+    await page.clock.runFor(5000 + windup + 50);   // just after this agent's windup, while the screen is white
+    assert.equal(await agent(page), id);
+    assert.equal(await flashStyle(page), '1');
+    assert.equal(await page.evaluate(() => document.getElementById('flash').style.getPropertyValue('--tint')), tint);
+    await page.mouse.up();
+    await context.close();
+  });
+}
 
 test('releasing early, moving away, or other tiles do nothing', async () => {
   const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
@@ -704,20 +727,21 @@ test('releasing early, moving away, or other tiles do nothing', async () => {
   await context.close();
 });
 
-test('the flash overlay never blocks touches', async () => {
+test('the flash overlay and the orb never block touches', async () => {
   const { page, context } = await open();
   assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('flash')).pointerEvents), 'none');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('orb')).pointerEvents), 'none');
   await context.close();
 });
 
 test('the same agent never flashes twice in a row', async () => {
   const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
   await page.evaluate(() => window.setBattery(0.82, true, 2280));
-  await press(page, '#battTile'); await page.clock.runFor(8000); await page.mouse.up();
-  assert.match(await page.textContent('#eggNote'), /Phoenix/);
+  await press(page, '#battTile'); await page.clock.runFor(5000 + 300); await page.mouse.up();
+  assert.equal(await agent(page), 'phoenix', 'the first agent');
   await page.clock.runFor(5000);
-  await press(page, '#battTile'); await page.clock.runFor(8000); await page.mouse.up();
-  assert.match(await page.textContent('#eggNote'), /Breach/);
+  await press(page, '#battTile'); await page.clock.runFor(5000 + 400); await page.mouse.up();
+  assert.equal(await agent(page), 'breach', 'a different agent the second time');
   await context.close();
 });
 
@@ -728,7 +752,7 @@ test('with visual effects turned down, holding does nothing', async () => {
   assert.equal(await pct(page), '82%', 'ring does not jump to full');
   await page.clock.runFor(600);   // where the white flash would be
   assert.equal(await flashStyle(page), '0');
-  assert.equal(await page.isHidden('#eggNote'), true);
+  assert.equal(await orbShown(page), false);
   await page.mouse.up();
   await context.close();
 });
@@ -740,8 +764,8 @@ test('with reduce-motion on, the ring still fills but the screen never goes whit
   await press(page, '#battTile'); await page.clock.runFor(5200);
   assert.equal(await pct(page), '100%');
   await page.clock.runFor(700);   // 5.9 s: where the Phoenix flash is at full white
-  assert.match(await page.textContent('#eggNote'), /Phoenix/);
   assert.equal(await flashStyle(page), '0', 'no white flash');
+  assert.equal(await orbShown(page), false, 'and no flying orb');
   await page.mouse.up();
   await context.close();
 });

@@ -242,3 +242,15 @@ test('pickFlash never repeats the previous agent', () => {
   }
   assert.equal(pickFlash(0, 'Phoenix').agent, 'Breach');
 });
+
+test('every flash has an id, a tint colour and a flight path that ends at the screen centre', () => {
+  assert.deepEqual(FLASHES.map(f => f.id), ['phoenix', 'breach', 'yoru', 'skye', 'kayo']);
+  for (const f of FLASHES) {
+    assert.match(f.tint, /^#[0-9a-f]{6}$/i, f.id);
+    assert.ok(f.points.length >= 2, `${f.id} has a path`);
+    for (const [x, y, scale = 1] of f.points) assert.ok(Number.isFinite(x) && Number.isFinite(y) && scale > 0, `${f.id} point`);
+    const last = f.points[f.points.length - 1];
+    assert.deepEqual([last[0], last[1]], [50, 50], `${f.id} ends in the centre`);
+  }
+  assert.equal(new Set(FLASHES.map(f => f.tint)).size, FLASHES.length, 'each agent has its own colour');
+});

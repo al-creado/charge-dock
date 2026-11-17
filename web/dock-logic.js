@@ -108,13 +108,20 @@
     return (hour % 12 === 0 ? 12 : hour % 12) + ':00 ' + (hour < 12 ? 'AM' : 'PM');
   }
 
-  // Agents with a classic flash ability. Each is one gentle pulse: wind up, a short hold at full white, a long fade.
+  // Agents with a classic flash ability, drawn in a stylized way (not exact). Each is one gentle pulse:
+  // an orb flies in along `points` ([x%, y%, scale], ending at the centre) during the windup, then the screen
+  // goes white for `hold` ms with a rim in the agent's `tint`, then fades over `fade` ms.
   const FLASHES = [
-    { agent: 'Phoenix', ability: 'Curveball',     windup: 700, hold: 400, fade: 1600 },
-    { agent: 'Breach',  ability: 'Flashpoint',    windup: 350, hold: 350, fade: 1400 },
-    { agent: 'Yoru',    ability: 'Blindside',     windup: 900, hold: 450, fade: 1800 },
-    { agent: 'Skye',    ability: 'Guiding Light', windup: 550, hold: 400, fade: 1500 },
-    { agent: 'KAY/O',   ability: 'FLASH/drive',   windup: 500, hold: 450, fade: 1700 },
+    { id: 'phoenix', agent: 'Phoenix', ability: 'Curveball',     tint: '#ff7a1a', windup: 700, hold: 400, fade: 1600,
+      points: [[6, 92], [14, 55], [28, 32], [42, 30], [50, 50]] },                  // curves in
+    { id: 'breach',  agent: 'Breach',  ability: 'Flashpoint',    tint: '#ffb21e', windup: 350, hold: 350, fade: 1400,
+      points: [[50, 50, 0.2], [50, 50, 2]] },                                       // charges up in place
+    { id: 'yoru',    agent: 'Yoru',    ability: 'Blindside',     tint: '#4a7dff', windup: 900, hold: 450, fade: 1800,
+      points: [[94, 86], [66, 18], [34, 72], [50, 50]] },                           // bounces off the walls
+    { id: 'skye',    agent: 'Skye',    ability: 'Guiding Light', tint: '#4be08a', windup: 550, hold: 400, fade: 1500,
+      points: [[-4, 35], [15, 52], [32, 28], [50, 50]] },                           // glides in
+    { id: 'kayo',    agent: 'KAY/O',   ability: 'FLASH/drive',   tint: '#2fd0ff', windup: 500, hold: 450, fade: 1700,
+      points: [[50, 108], [50, 50]] },                                              // thrown straight up
   ];
 
   // rand is a number in [0, 1). Never returns lastAgent, so the same flash does not come twice in a row.
