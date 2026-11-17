@@ -434,3 +434,17 @@ test('custom colour button takes on the chosen colour and keeps a readable icon'
   assert.equal(look.icon, 'rgb(0, 0, 0)', 'black icon on a light blue');
   await context.close();
 });
+
+for (const [w, h] of [[915, 412], [412, 915]]) {
+  test(`edit icon is centred in its button at ${w}x${h}`, async () => {
+    const { page, context } = await open({ width: w, height: h });
+    await page.click('#settingsBtn');
+    const d = await page.evaluate(() => {
+      const b = document.getElementById('customSwatch').getBoundingClientRect();
+      const i = document.querySelector('#customSwatch svg').getBoundingClientRect();
+      return { dx: Math.abs((b.left + b.width / 2) - (i.left + i.width / 2)), dy: Math.abs((b.top + b.height / 2) - (i.top + i.height / 2)) };
+    });
+    assert.ok(d.dx <= 0.5 && d.dy <= 0.5, `icon off centre by ${d.dx}px, ${d.dy}px`);
+    await context.close();
+  });
+}
