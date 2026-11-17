@@ -624,3 +624,32 @@ test('once the app reports the theme, the browser media query is ignored', async
   assert.equal(await theme(page), 'dark');
   await context.close();
 });
+
+test('dim hours follow the 12-hour setting', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15) });
+  const values = () => page.evaluate(() => [document.getElementById('startValue').textContent, document.getElementById('endValue').textContent]);
+  await page.click('#settingsBtn');
+  assert.deepEqual(await values(), ['22:00', '07:00']);
+  await page.click('[data-hour12="true"]');
+  assert.deepEqual(await values(), ['10:00 PM', '7:00 AM']);
+  await page.click('#startPlus');
+  assert.equal(await page.textContent('#startValue'), '11:00 PM');
+  await page.click('#startPlus');
+  assert.equal(await page.textContent('#startValue'), '12:00 AM');
+  await page.click('[data-hour12="false"]');
+  assert.equal(await page.textContent('#startValue'), '00:00');
+  await context.close();
+});
+
+for (const hour12 of [false, true]) {
+  test(`dim rows fit on a narrow phone (${hour12 ? '12' : '24'}-hour)`, async () => {
+    const { page, context } = await open({ width: 360, height: 800, settings: { hour12 } });
+    await page.click('#settingsBtn');
+    const overflow = await page.evaluate(() => ['startValue', 'endValue'].map(id => {
+      const row = document.getElementById(id).closest('.row');
+      return row.scrollWidth > row.clientWidth;
+    }));
+    assert.deepEqual(overflow, [false, false]);
+    await context.close();
+  });
+}

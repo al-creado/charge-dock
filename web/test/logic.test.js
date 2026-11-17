@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme } = require('../dock-logic.js');
+const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour } = require('../dock-logic.js');
 
 const at = (y, m, d, h = 12, min = 0) => new Date(y, m - 1, d, h, min);
 
@@ -192,4 +192,16 @@ test('visibleAccent on the light theme darkens colours that would wash out', () 
     assert.ok(luminance(visibleAccent(pale, 'light')) <= 0.27, pale);
   }
   assert.equal(visibleAccent('#ffb25b', 'dark'), '#ffb25b');
+});
+
+test('formatHour shows 24-hour and 12-hour hours', () => {
+  assert.equal(formatHour(22, false), '22:00');
+  assert.equal(formatHour(0, false), '00:00');
+  assert.equal(formatHour(7, false), '07:00');
+  assert.equal(formatHour(22, true), '10:00 PM');
+  assert.equal(formatHour(7, true), '7:00 AM');
+  assert.equal(formatHour(0, true), '12:00 AM');
+  assert.equal(formatHour(12, true), '12:00 PM');
+  assert.equal(formatHour(13, true), '1:00 PM');
+  assert.equal(formatHour(23, true), '11:00 PM');
 });

@@ -102,6 +102,12 @@
     return 1.05 / (L + 0.05) > (L + 0.05) / 0.05 ? '#ffffff' : '#000000';
   }
 
+  // An hour of the day (0..23) as '22:00', or '10:00 PM' in 12-hour mode.
+  function formatHour(hour, hour12) {
+    if (!hour12) return String(hour).padStart(2, '0') + ':00';
+    return (hour % 12 === 0 ? 12 : hour % 12) + ':00 ' + (hour < 12 ? 'AM' : 'PM');
+  }
+
   const FONTS = ['dot', 'mono', 'sans'];
   const THEMES = ['dark', 'light', 'system'];
   const ACCENTS = ['#d71921', '#ffb25b', '#5be28c', '#4aa3ff', '#f4f3f0'];
@@ -139,7 +145,7 @@
     return theme === 'light' ? 'light' : 'dark';
   }
 
-  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, THEMES };
+  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, THEMES };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.DockLogic = api;
 })(typeof window !== 'undefined' ? window : globalThis);
