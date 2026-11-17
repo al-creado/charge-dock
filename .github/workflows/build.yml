@@ -27,6 +27,14 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit tests and debug APK
         run: ./gradlew --no-daemon testDebugUnitTest assembleDebug
+      - name: APK is signed with the committed debug key
+        run: |
+          fp='\([0-9A-F][0-9A-F]:\)\{31\}[0-9A-F][0-9A-F]'
+          apk=$(keytool -printcert -jarfile app/build/outputs/apk/debug/app-debug.apk | grep -o "$fp" | head -1)
+          key=$(keytool -list -keystore app/debug.keystore -storepass android -alias androiddebugkey | grep -o "$fp" | head -1)
+          echo "APK signer SHA-256: $apk"
+          echo "Keystore SHA-256:   $key"
+          test -n "$apk" && test "$apk" = "$key"
       - name: APK contains the dock page
         run: |
           unzip -l app/build/outputs/apk/debug/app-debug.apk > apk-contents.txt
