@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, FLASHES, pickFlash, EGG, chargePercent, summarizeNotifications, weatherText, formatTemperature, parseForecast, parseGeocode, parseIpLocation, forecastUrl, geocodeUrl, weatherLine } = require('../dock-logic.js');
+const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, FLASHES, pickFlash, EGG, chargePercent, summarizeNotifications, weatherText, formatTemperature, parseForecast, parseGeocode, parseIpLocation, forecastUrl, geocodeUrl, weatherLine, alarmSummary, batteryDetailsText, healthText } = require('../dock-logic.js');
 
 const at = (y, m, d, h = 12, min = 0) => new Date(y, m - 1, d, h, min);
 
@@ -364,4 +364,53 @@ test('batteryText: unplugged is still Not charging, and the old three-argument c
   assert.deepEqual(batteryText(0.8, false, -1, false), { pct: '80%', big: 'Not charging', sub: 'Plug in to charge' });
   assert.deepEqual(batteryText(0.8, false, -1), { pct: '80%', big: 'Not charging', sub: 'Plug in to charge' });
   assert.deepEqual(batteryText(0.8, true, 1800, true), { pct: '80%', big: 'Charging', sub: 'Full in about 30 min' });
+});
+
+test('alarmSummary: nothing is shown for no alarm or one that has passed', () => {
+  const now = at(2026, 11, 17, 22, 0).getTime();
+  for (const bad of [null, undefined, NaN, 'soon', -1, now, now - 1000]) assert.deepEqual(alarmSummary(bad, now, false), { none: true }, String(bad));
+});
+
+test('alarmSummary: the alarm time follows the 12 or 24-hour setting', () => {
+  const now = at(2026, 11, 17, 22, 0).getTime(), alarm = at(2026, 11, 18, 7, 0).getTime();
+  assert.deepEqual(alarmSummary(alarm, now, false), { none: false, hh: '07', mm: '00', suffix: '', when: 'in 9h', day: '' });
+  assert.deepEqual(alarmSummary(alarm, now, true), { none: false, hh: '7', mm: '00', suffix: 'AM', when: 'in 9h', day: '' });
+});
+
+test('alarmSummary: how long until it rings', () => {
+  const now = at(2026, 11, 17, 22, 0).getTime();
+  const when = (y, m, d, h, min) => alarmSummary(at(y, m, d, h, min).getTime(), now, false).when;
+  assert.equal(when(2026, 11, 17, 22, 45), 'in 45m');
+  assert.equal(when(2026, 11, 17, 23, 15), 'in 1h 15m');
+  assert.equal(when(2026, 11, 18, 7, 0), 'in 9h');
+  assert.equal(when(2026, 11, 20, 7, 0), 'in 2d 9h');
+  assert.equal(when(2026, 11, 20, 22, 0), 'in 3d');
+  assert.equal(alarmSummary(now + 30 * 1000, now, false).when, 'in 1m', 'rounds up, never "in 0m"');
+});
+
+test('alarmSummary: names the weekday only when the alarm is more than a day away', () => {
+  const now = at(2026, 11, 17, 22, 0).getTime();
+  assert.equal(alarmSummary(at(2026, 11, 17, 23, 0).getTime(), now, false).day, '');
+  assert.equal(alarmSummary(at(2026, 11, 18, 7, 0).getTime(), now, false).day, '', 'tomorrow needs no weekday');
+  assert.equal(alarmSummary(at(2026, 11, 20, 7, 0).getTime(), now, false).day, 'Fri');
+});
+
+test('healthText turns Android battery health codes into words', () => {
+  const expected = { 2: 'Good', 3: 'Hot', 4: 'Dead', 5: 'Overvoltage', 6: 'Fault', 7: 'Cold' };
+  for (const [code, text] of Object.entries(expected)) assert.equal(healthText(Number(code)), text, `code ${code}`);
+  for (const unknown of [0, 1, 99, NaN, null]) assert.equal(healthText(unknown), '', String(unknown));
+});
+
+test('batteryDetailsText: temperature, voltage and health, in C or F', () => {
+  assert.deepEqual(batteryDetailsText(31.2, 4210, 2, 'C'), { big: '31\u00b0', sub: '4.21 V \u00b7 Good' });
+  assert.deepEqual(batteryDetailsText(31.2, 4210, 2, 'F'), { big: '88\u00b0', sub: '4.21 V \u00b7 Good' });
+  assert.deepEqual(batteryDetailsText(-5, 3700, 7, 'C'), { big: '-5\u00b0', sub: '3.70 V \u00b7 Cold' });
+  assert.deepEqual(batteryDetailsText(45, 4300, 3, 'C'), { big: '45\u00b0', sub: '4.30 V \u00b7 Hot' });
+});
+
+test('batteryDetailsText: copes with missing readings', () => {
+  assert.deepEqual(batteryDetailsText(null, 4210, 2, 'C'), { big: '\u2013', sub: '4.21 V \u00b7 Good' });
+  assert.deepEqual(batteryDetailsText(31.2, null, 0, 'C'), { big: '31\u00b0', sub: '' });
+  assert.deepEqual(batteryDetailsText(NaN, NaN, NaN, 'C'), { big: '\u2013', sub: 'Not available' });
+  assert.deepEqual(batteryDetailsText(undefined, undefined, undefined, 'C'), { big: '\u2013', sub: 'Not available' });
 });

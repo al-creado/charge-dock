@@ -13,6 +13,7 @@ class DockDreamService : DreamService() {
     private var webView: WebView? = null
     private var battery: BatteryFeed? = null
     private var notifications: NotificationFeed? = null
+    private var alarm: AlarmFeed? = null
     private var layout: OrientationLayout? = null
     private var tilt: OrientationEventListener? = null
     private var lastAngle = 0
@@ -29,13 +30,14 @@ class DockDreamService : DreamService() {
         }
         val view = DockWebViewFactory.create(
             this,
-            onPageLoaded = { battery?.onPageLoaded(); notifications?.onPageLoaded() },
+            onPageLoaded = { battery?.onPageLoaded(); notifications?.onPageLoaded(); alarm?.onPageLoaded() },
             onExit = { finish() },
             onRenderGone = { finish() },
         )
         webView = view
         battery = BatteryFeed(this, view)
         notifications = NotificationFeed(this, view)
+        alarm = AlarmFeed(this, view)
         // Turn the dock to match how the phone is actually held, whatever orientation Android gave the window.
         val holder = OrientationLayout(this).also { it.setContent(view) }
         layout = holder
@@ -65,6 +67,7 @@ class DockDreamService : DreamService() {
         super.onDreamingStarted()
         battery?.start()
         notifications?.start()
+        alarm?.start()
         tilt?.takeIf { it.canDetectOrientation() }?.enable()
     }
 
@@ -72,6 +75,7 @@ class DockDreamService : DreamService() {
         tilt?.disable()
         battery?.stop()
         notifications?.stop()
+        alarm?.stop()
         super.onDreamingStopped()
     }
 
@@ -82,6 +86,7 @@ class DockDreamService : DreamService() {
         tilt = null
         battery = null
         notifications = null
+        alarm = null
         super.onDetachedFromWindow()
     }
 }

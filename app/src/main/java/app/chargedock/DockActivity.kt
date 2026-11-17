@@ -14,6 +14,7 @@ class DockActivity : Activity() {
     private lateinit var webView: WebView
     private lateinit var battery: BatteryFeed
     private lateinit var notifications: NotificationFeed
+    private lateinit var alarm: AlarmFeed
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,12 +22,13 @@ class DockActivity : Activity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         webView = DockWebViewFactory.create(
             this,
-            onPageLoaded = { battery.onPageLoaded(); notifications.onPageLoaded() },
+            onPageLoaded = { battery.onPageLoaded(); notifications.onPageLoaded(); alarm.onPageLoaded() },
             onExit = { finish() },
             onRenderGone = { recreate() },
         )
         battery = BatteryFeed(this, webView)
         notifications = NotificationFeed(this, webView)
+        alarm = AlarmFeed(this, webView)
         setContentView(webView)
         hideSystemBars()
     }
@@ -35,11 +37,13 @@ class DockActivity : Activity() {
         super.onStart()
         battery.start()
         notifications.start()
+        alarm.start()
     }
 
     override fun onStop() {
         battery.stop()
         notifications.stop()
+        alarm.stop()
         super.onStop()
     }
 

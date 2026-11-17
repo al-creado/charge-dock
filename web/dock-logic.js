@@ -186,6 +186,32 @@
     return [formatTemperature(weather.tempC, unit), weatherText(weather.code), weather.name].filter(Boolean).join(' \u00b7 ');
   }
 
+  // ---- next alarm (the phone's real alarm clock, reported by the app) ----
+  const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  // { none: true } when there is no upcoming alarm, else its time (in the 12 or 24-hour style), how long until it
+  // rings ('in 9h', 'in 2d 9h') and, only when it is more than a day away, the weekday.
+  function alarmSummary(triggerMs, nowMs, hour12) {
+    if (!Number.isFinite(triggerMs) || !Number.isFinite(nowMs) || triggerMs <= nowMs) return { none: true };
+    const at = new Date(triggerMs), t = formatTime(at, hour12);
+    const mins = Math.ceil((triggerMs - nowMs) / 60000);
+    const d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = mins % 60;
+    const when = mins < 60 ? 'in ' + mins + 'm'
+      : d === 0 ? 'in ' + h + 'h' + (m ? ' ' + m + 'm' : '')
+      : 'in ' + d + 'd' + (h ? ' ' + h + 'h' : '');
+    const startOf = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const daysAway = Math.round((startOf(at) - startOf(new Date(nowMs))) / 86400000);
+    return { none: false, hh: t.hh, mm: t.mm, suffix: t.suffix, when, day: daysAway > 1 ? DAY_SHORT[at.getDay()] : '' };
+  }
+
+  // ---- battery details: temperature, voltage and health from the phone's battery reading ----
+  const HEALTH = { 2: 'Good', 3: 'Hot', 4: 'Dead', 5: 'Overvoltage', 6: 'Fault', 7: 'Cold' };
+  const healthText = code => HEALTH[code] || '';
+  function batteryDetailsText(tempC, millivolts, health, unit) {
+    const big = Number.isFinite(tempC) ? formatTemperature(tempC, unit) : '\u2013';
+    const parts = [Number.isFinite(millivolts) ? (millivolts / 1000).toFixed(2) + ' V' : '', healthText(health)].filter(Boolean);
+    return { big, sub: parts.length ? parts.join(' \u00b7 ') : (big === '\u2013' ? 'Not available' : '') };
+  }
+
   // The hidden effect: hold the battery tile for holdMs, then the ring charges up over chargeMs.
   const EGG = { holdMs: 2000, chargeMs: 1800 };
 
@@ -246,7 +272,7 @@
     return theme === 'light' ? 'light' : 'dark';
   }
 
-  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, THEMES, FLASHES, pickFlash, EGG, chargePercent, summarizeNotifications, weatherText, formatTemperature, parseForecast, parseGeocode, parseIpLocation, forecastUrl, geocodeUrl, weatherLine, IP_LOCATION_URL };
+  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, THEMES, FLASHES, pickFlash, EGG, chargePercent, summarizeNotifications, weatherText, formatTemperature, parseForecast, parseGeocode, parseIpLocation, forecastUrl, geocodeUrl, weatherLine, IP_LOCATION_URL, alarmSummary, batteryDetailsText, healthText };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.DockLogic = api;
 })(typeof window !== 'undefined' ? window : globalThis);

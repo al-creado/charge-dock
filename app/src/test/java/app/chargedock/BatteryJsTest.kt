@@ -46,4 +46,27 @@ class BatteryJsTest {
             Locale.setDefault(saved)
         }
     }
+
+    @Test
+    fun detailsReportTemperatureVoltageAndHealth() {
+        assertEquals("window.setBatteryDetails(31.2,4210,2)", BatteryJs.detailsScript(312, 4210, 2))
+    }
+
+    @Test
+    fun detailsHandleColdAndMissingReadings() {
+        assertEquals("window.setBatteryDetails(-5.0,3700,7)", BatteryJs.detailsScript(-50, 3700, 7))
+        assertEquals("window.setBatteryDetails(null,4210,2)", BatteryJs.detailsScript(null, 4210, 2))
+        assertEquals("window.setBatteryDetails(31.2,null,2)", BatteryJs.detailsScript(312, 0, 2))
+    }
+
+    @Test
+    fun detailsIgnoreTheDeviceLocale() {
+        val saved = Locale.getDefault()
+        try {
+            Locale.setDefault(Locale.GERMANY)
+            assertEquals("window.setBatteryDetails(31.2,4210,2)", BatteryJs.detailsScript(312, 4210, 2))
+        } finally {
+            Locale.setDefault(saved)
+        }
+    }
 }

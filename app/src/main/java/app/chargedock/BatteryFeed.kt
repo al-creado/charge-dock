@@ -13,6 +13,7 @@ class BatteryFeed(private val context: Context, private val webView: WebView) {
     private var registered = false
     private var pageLoaded = false
     private var latest: String? = null
+    private var latestDetails: String? = null
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = push(intent)
@@ -36,6 +37,7 @@ class BatteryFeed(private val context: Context, private val webView: WebView) {
     fun onPageLoaded() {
         pageLoaded = true
         latest?.let { webView.evaluateJavascript(it, null) }
+        latestDetails?.let { webView.evaluateJavascript(it, null) }
     }
 
     private fun push(intent: Intent) {
@@ -52,7 +54,17 @@ class BatteryFeed(private val context: Context, private val webView: WebView) {
             -1L
         }
         val script = BatteryJs.script(level, scale, charging, chargeTimeMs, pluggedIn)
+        val temperature = if (intent.hasExtra(BatteryManager.EXTRA_TEMPERATURE)) intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) else null
+        val details = BatteryJs.detailsScript(
+            temperature,
+            intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0),
+            intent.getIntExtra(BatteryManager.EXTRA_HEALTH, 0),
+        )
         latest = script
-        if (pageLoaded) webView.evaluateJavascript(script, null)
+        latestDetails = details
+        if (pageLoaded) {
+            webView.evaluateJavascript(script, null)
+            webView.evaluateJavascript(details, null)
+        }
     }
 }

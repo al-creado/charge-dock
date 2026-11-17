@@ -81,10 +81,14 @@
   .ring b { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--dot); font-weight: var(--dot-weight); font-variation-settings: "ROND" 100; font-size: calc(var(--ring) * .24); }
   .batt { display: flex; align-items: center; gap: 4cqmin; min-width: 0; }
 
+  .alarm .ampm, .alarm .big { white-space: nowrap; }
+  .tiles .tile .alarm .big { font-size: clamp(22px, min(30cqh, 28cqw), 120px); }
+  .tiles .tile .details .big { font-size: clamp(26px, min(34cqh, 40cqw), 140px); }
+  #notifRows li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .notif { display: flex; align-items: center; gap: calc(var(--gap) * 1.5); min-width: 0; }
   .notif-side { flex: 1; min-width: 0; }
-  #notifRows { list-style: none; padding: 0; margin: 0; display: grid; gap: .45em; font-size: clamp(12px, min(8cqh, 4cqw), 20px); color: var(--fg); }
-  #notifRows li { display: flex; justify-content: space-between; gap: 1em; }
+  #notifRows { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: .45em; font-size: clamp(12px, min(8cqh, 4cqw), 20px); color: var(--fg); }
+  #notifRows li { display: flex; justify-content: space-between; gap: 1em; min-width: 0; }
   #notifRows li b { font-family: var(--dot); font-variation-settings: "ROND" 100; font-weight: var(--dot-weight); }
   #notifRows li.more { color: var(--muted); justify-content: flex-start; }
   #notifTile .sub { font-size: clamp(12px, min(8cqh, 4cqw), 20px); }
@@ -112,7 +116,7 @@
     .week .wn { display: inline; }
     .week b { font-size: clamp(22px, min(7cqh, 18cqw), 90px); }
   }
-  @container (max-aspect-ratio: 3/2) {
+  @container (max-aspect-ratio: 11/10) {
     .notif { flex-direction: column; align-items: stretch; text-align: center; gap: 3cqmin; }
     #notifRows li { justify-content: center; gap: 1.2em; }
     .batt { flex-direction: column; text-align: center; gap: 3cqmin; }
@@ -191,7 +195,7 @@
 
     <div class="tiles" id="tiles">
       <section class="page" id="page0">
-        <div class="tile wide" id="battTile">
+        <div class="tile" id="battTile">
           <div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="16" height="9" rx="2.5"/><path d="M21 11v3"/></svg>Battery</div>
           <div class="batt">
             <div class="ring">
@@ -201,7 +205,14 @@
             <div><div class="big" id="battBig">Charging</div><div class="sub" id="battSub">Level unknown</div></div>
           </div>
         </div>
-        <div class="tile wide" id="notifTile" data-state="sample">
+        <div class="tile" id="alarmTile" data-state="sample">
+          <div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7.5"/><path d="M12 9v4l2.5 1.5M4 5l3-2M20 5l-3-2"/></svg><span id="alarmLabel">Next alarm \u00b7 sample</span></div>
+          <div class="alarm">
+            <div class="big" id="alarmTime"><span id="alarmHm">--:--</span><span class="ampm" id="alarmAmpm"></span></div>
+            <div class="sub" id="alarmWhen">&nbsp;</div>
+          </div>
+        </div>
+        <div class="tile" id="notifTile" data-state="sample">
           <div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1 1 12 0c0 5 2 6.5 2 6.5H4S6 14 6 9z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg><span id="notifLabel">Notifications · sample</span></div>
           <div class="notif">
             <div class="big" id="notifTotal">0</div>
@@ -209,6 +220,13 @@
               <ul id="notifRows"></ul>
               <div class="sub" id="notifMessage" hidden></div>
             </div>
+          </div>
+        </div>
+        <div class="tile" id="detailsTile" data-state="sample">
+          <div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0z"/></svg><span id="detailsLabel">Battery details \u00b7 sample</span></div>
+          <div class="details">
+            <div class="big" id="detailsBig">&ndash;</div>
+            <div class="sub" id="detailsSub">&nbsp;</div>
           </div>
         </div>
       </section>
@@ -312,6 +330,7 @@
     const n = new Date();
     const t = DockLogic.formatTime(n, S.hour12);
     setText('hh', t.hh); setText('mm', t.mm); setText('ampm', t.suffix);
+    if (typeof renderAlarm === 'function') renderAlarm();
     $('date').textContent = n.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
     const key = n.toDateString();
     if (key !== dayKey) {
@@ -377,7 +396,7 @@
     $('endValue').textContent = DockLogic.formatHour(S.dimEnd, S.hour12);
     $('levelValue').textContent = S.dimLevel + '%';
     $('redBtn').setAttribute('aria-pressed', String(S.red));
-    dayKey = ''; tick(); applyDimming(); if (typeof renderWeather === 'function') renderWeather();
+    dayKey = ''; tick(); applyDimming(); if (typeof renderWeather === 'function') { renderWeather(); renderAlarm(); renderDetails(); }
   }
   const change = fn => { fn(); saveSettings(); applySettings(); };
 
@@ -533,6 +552,32 @@
   $('cityInput').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
   addEventListener('online', refreshWeather);
   setInterval(refreshWeather, 30 * 60 * 1000);
+
+  // ---- next alarm: the Android app calls setNextAlarm(epochMillis, or null for none) ----
+  let alarmState = window.DockHost ? 'none' : 'sample', alarmMs = null;   // in a plain browser: a labelled sample
+  const sampleAlarmMs = () => { const n = new Date(), a = new Date(n.getFullYear(), n.getMonth(), n.getDate(), 7, 0); if (a <= n) a.setDate(a.getDate() + 1); return a.getTime(); };
+  function renderAlarm() {
+    const a = DockLogic.alarmSummary(alarmState === 'sample' ? sampleAlarmMs() : alarmMs, Date.now(), S.hour12);
+    $('alarmTile').dataset.state = a.none ? 'none' : alarmState;
+    setText('alarmLabel', alarmState === 'sample' ? 'Next alarm \u00b7 sample' : 'Next alarm');
+    setText('alarmHm', a.none ? '--:--' : a.hh + ':' + a.mm);
+    setText('alarmAmpm', a.none ? '' : a.suffix);
+    setText('alarmWhen', a.none ? 'No alarm set' : a.when + (a.day ? ' \u00b7 ' + a.day : ''));
+  }
+  window.setNextAlarm = ms => { alarmState = 'ready'; alarmMs = Number.isFinite(ms) ? ms : null; renderAlarm(); };
+
+  // ---- battery details: the app calls setBatteryDetails(temperatureC | null, millivolts | null, healthCode) ----
+  let detailsState = window.DockHost ? 'waiting' : 'sample', details = [null, null, 0];
+  function renderDetails() {
+    const [t, mv, h] = detailsState === 'sample' ? [31.2, 4210, 2] : details;
+    const d = DockLogic.batteryDetailsText(t, mv, h, S.unit);
+    $('detailsTile').dataset.state = detailsState;
+    setText('detailsLabel', detailsState === 'sample' ? 'Battery details \u00b7 sample' : 'Battery details');
+    setText('detailsBig', d.big);
+    setText('detailsSub', d.sub);
+  }
+  window.setBatteryDetails = (t, mv, h) => { detailsState = 'ready'; details = [t, mv, h]; renderDetails(); };
+  renderAlarm(); renderDetails();
 
   // ---- notifications: the Android app calls setNotifications([{app, count}, ...]) and setNotificationAccess(bool) ----
   const SAMPLE_NOTIFICATIONS = [{ app: 'Messages', count: 2 }, { app: 'Mail', count: 2 }, { app: 'Calendar', count: 1 }];

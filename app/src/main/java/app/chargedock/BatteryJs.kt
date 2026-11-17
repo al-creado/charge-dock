@@ -18,4 +18,15 @@ object BatteryJs {
         val seconds = if (chargeTimeMs > 0) chargeTimeMs / 1000 else -1L
         return "window.setBattery($fraction,$charging,$seconds,$pluggedIn)"
     }
+
+    /**
+     * `window.setBatteryDetails(temperatureC, millivolts, health)` for the Battery details tile. Temperature comes
+     * from Android in tenths of a degree; [temperatureTenths] and [millivolts] that are missing become `null`.
+     * [health] is Android's BatteryManager health code.
+     */
+    fun detailsScript(temperatureTenths: Int?, millivolts: Int, health: Int): String {
+        val temperature = temperatureTenths?.let { String.format(Locale.ROOT, "%.1f", it / 10.0) } ?: "null"
+        val volts = if (millivolts > 0) millivolts.toString() else "null"
+        return "window.setBatteryDetails($temperature,$volts,$health)"
+    }
 }

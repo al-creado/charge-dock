@@ -31,6 +31,12 @@ Tick each line pass or fail. Any fail is a bug to report.
 - [ ] Settings are still there after closing and reopening the dock.
 - [ ] The **Turn down visual effects** switch is in Settings. With it off, the clock colon blinks and holding the battery tile for two seconds charges the ring up to 100% and flashes once (a single pulse, not a strobe). With it on, the colon is steady and holding does nothing.
 
+## Tiles
+- [ ] The right side is a 2×2 grid: Battery, Next alarm, Notifications, Battery details. Nothing is cut off in portrait or landscape.
+- [ ] **Next alarm** shows your real next alarm and counts down. Set, change and delete an alarm in the Clock app and the tile follows. With no alarm it says "No alarm set".
+- [ ] **Battery details** shows a believable temperature and voltage that change as the phone charges. °C/°F in Settings changes it.
+- [ ] At your charge limit the Battery tile says **Paused**.
+
 ## Notifications
 - [ ] The notifications card shows **Off** at first. **Notification access** opens the system page where Charge Dock can be switched on.
 - [ ] After switching it on and coming back, the card shows **On**.

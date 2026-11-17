@@ -388,7 +388,7 @@ for (const [w, h] of [[412, 915], [360, 800], [915, 412], [800, 360]]) {
     for (const tile of await measureTiles(page)) {
       assert.equal(tile.clipped, false, `${tile.name} is not clipped`);
       assert.equal(tile.inside, true, `${tile.name} content stays inside`);
-      const need = tile.name.startsWith('Battery') ? 0.5 : 0.35;
+      const need = tile.name === 'Battery' ? 0.5 : 0.35;
       assert.ok(tile.fill >= need, `${tile.name} content fills ${Math.round(tile.fill * 100)}% (needs ${need * 100}%)`);
     }
     await page.click('.dots [data-page="1"]');
@@ -816,10 +816,8 @@ const spacing = async page => { await settled(page); return page.evaluate(() => 
   const out = { left: clock.left, right: W - rightmost, top: Math.min(clock.top, ...tiles.map(t => t.top)), bottomBar: H - bottom.bottom, aboveBar: bottom.top - lowest };
   const landscape = clock.right < tiles[0].left;
   if (landscape) out.clockToTiles = tiles[0].left - clock.right; else out.clockToTiles = tiles[0].top - clock.bottom;
-  if (tiles.length > 1) {
-    out.tileRow = tiles[1].top - tiles[0].bottom;
-    if (tiles.length > 2) out.tileColumn = tiles[2].left - tiles[1].right;
-  }
+  if (tiles.length > 1) out.tileColumn = tiles[1].left - tiles[0].right;
+  if (tiles.length > 2) out.tileRow = tiles[2].top - tiles[0].bottom;
   return out;
 }); };
 
@@ -962,10 +960,10 @@ for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800]]) {
 }
 
 // ---- right side: Battery + Notifications; temperature lives on the clock tile ----
-test('the right side has Battery and Notifications; weather and date tiles are gone', async () => {
+test('the right side is a 2x2 grid: Battery, Next alarm, Notifications, Battery details', async () => {
   const { page, context } = await open();
   const labels = await page.evaluate(() => [...document.querySelectorAll('#page0 .tile .label')].map(l => l.textContent.trim()));
-  assert.deepEqual(labels, ['Battery', 'Notifications · sample']);
+  assert.deepEqual(labels, ['Battery', 'Next alarm · sample', 'Notifications · sample', 'Battery details · sample']);
   assert.equal(await page.evaluate(() => !!document.getElementById('dayNum') || document.body.textContent.includes('H 22')), false);
   await context.close();
 });
@@ -1242,4 +1240,114 @@ test('the dock says Paused when the phone is plugged in but holding at its charg
   await page.evaluate(() => window.setBattery(0.8, false, -1, false));
   assert.equal((await read()).big, 'Not charging', 'unplugged is not paused');
   await context.close();
+});
+
+// ---- Next alarm and Battery details tiles ----
+const alarmText = page => page.evaluate(() => ({
+  time: document.getElementById('alarmTime').textContent,
+  when: document.getElementById('alarmWhen').textContent,
+  state: document.getElementById('alarmTile').dataset.state,
+  label: document.getElementById('alarmLabel').textContent,
+}));
+const localMs = (y, m, d, h, min) => new Date(y, m - 1, d, h, min).getTime();
+
+test('the right side is two columns of two tiles', async () => {
+  const { page, context } = await open({ time: DAY });
+  const pos = await page.evaluate(() => [...document.querySelectorAll('#page0 .tile')].map(t => { const r = t.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width)]; }));
+  assert.equal(pos.length, 4);
+  assert.equal(pos[0][1], pos[1][1], 'first two share a row');
+  assert.equal(pos[2][1], pos[3][1], 'last two share a row');
+  assert.equal(pos[0][0], pos[2][0], 'left column lines up');
+  assert.equal(pos[1][0], pos[3][0], 'right column lines up');
+  assert.ok(Math.abs(pos[0][2] - pos[1][2]) <= 1, 'equal widths');
+  await context.close();
+});
+
+test('Next alarm shows the time and how long until it rings', async () => {
+  const { page, context } = await open({ time: DAY, init: hostStub });
+  await page.evaluate(ms => window.setNextAlarm(ms), localMs(2026, 11, 18, 7, 0));
+  assert.deepEqual(await alarmText(page), { time: '07:00', when: 'in 18h 45m', state: 'ready', label: 'Next alarm' });
+  await context.close();
+});
+
+test('Next alarm follows the 12-hour setting and counts down as time passes', async () => {
+  const { page, context } = await open({ time: DAY, init: hostStub, settings: { hour12: true } });
+  await page.evaluate(ms => window.setNextAlarm(ms), localMs(2026, 11, 18, 7, 0));
+  assert.match((await alarmText(page)).time, /^7:00\s*AM$/);
+  await page.clock.runFor(61000);
+  assert.equal((await alarmText(page)).when, 'in 18h 44m', '18h 43m 59s rounds up');
+  await context.close();
+});
+
+test('Next alarm names the weekday when the alarm is more than a day away', async () => {
+  const { page, context } = await open({ time: DAY, init: hostStub });
+  await page.evaluate(ms => window.setNextAlarm(ms), localMs(2026, 11, 20, 7, 0));
+  assert.equal((await alarmText(page)).when, 'in 2d 18h \u00b7 Fri');
+  await context.close();
+});
+
+test('with no alarm, or one already past, the tile says so quietly', async () => {
+  const { page, context } = await open({ time: DAY, init: hostStub });
+  assert.deepEqual(await alarmText(page), { time: '--:--', when: 'No alarm set', state: 'none', label: 'Next alarm' });
+  await page.evaluate(ms => window.setNextAlarm(ms), localMs(2026, 11, 18, 7, 0));
+  await page.evaluate(() => window.setNextAlarm(null));
+  assert.equal((await alarmText(page)).when, 'No alarm set');
+  await page.evaluate(ms => window.setNextAlarm(ms), localMs(2026, 11, 17, 6, 0));
+  assert.equal((await alarmText(page)).when, 'No alarm set', 'an alarm in the past is not shown');
+  await context.close();
+});
+
+test('in a plain browser the alarm is a labelled sample for tomorrow morning', async () => {
+  const { page, context } = await open({ time: DAY });
+  const a = await alarmText(page);
+  assert.equal(a.state, 'sample');
+  assert.equal(a.label, 'Next alarm \u00b7 sample');
+  assert.equal(a.time, '07:00');
+  assert.equal(a.when, 'in 18h 45m');
+  await context.close();
+});
+
+const detailsText = page => page.evaluate(() => ({
+  big: document.getElementById('detailsBig').textContent,
+  sub: document.getElementById('detailsSub').textContent,
+  state: document.getElementById('detailsTile').dataset.state,
+  label: document.getElementById('detailsLabel').textContent,
+}));
+
+test('Battery details shows temperature, voltage and health, in the chosen unit', async () => {
+  let o = await open({ time: DAY, init: hostStub });
+  await o.page.evaluate(() => window.setBatteryDetails(31.2, 4210, 2));
+  assert.deepEqual(await detailsText(o.page), { big: '31\u00b0', sub: '4.21 V \u00b7 Good', state: 'ready', label: 'Battery details' });
+  await o.page.click('#settingsBtn');
+  await o.page.click('[data-unit="F"]');
+  assert.equal((await detailsText(o.page)).big, '88\u00b0', 'Fahrenheit');
+  await o.context.close();
+});
+
+test('Battery details copes with missing readings', async () => {
+  const { page, context } = await open({ time: DAY, init: hostStub });
+  assert.deepEqual(await detailsText(page), { big: '\u2013', sub: 'Not available', state: 'waiting', label: 'Battery details' });
+  await page.evaluate(() => window.setBatteryDetails(null, 4210, 0));
+  assert.equal((await detailsText(page)).sub, '4.21 V');
+  await context.close();
+});
+
+test('in a plain browser Battery details is a labelled sample', async () => {
+  const { page, context } = await open({ time: DAY });
+  const d = await detailsText(page);
+  assert.equal(d.state, 'sample');
+  assert.equal(d.label, 'Battery details \u00b7 sample');
+  assert.equal(d.big, '31\u00b0');
+  await context.close();
+});
+
+test('a very long app name in Notifications is cut short instead of pushing the tile apart', async () => {
+  for (const [w, h] of [[360, 800], [915, 412]]) {
+    const { page, context } = await open({ width: w, height: h, init: hostStub });
+    await page.evaluate(() => window.setNotifications([{ app: 'Google Photos Backup and Sync Helper Service', count: 12 }, { app: 'Mail', count: 3 }]));
+    const r = await page.evaluate(() => { const t = document.getElementById('notifTile'); return { clipped: t.scrollWidth > t.clientWidth + 1 || t.scrollHeight > t.clientHeight + 1, sw: document.documentElement.scrollWidth, iw: innerWidth }; });
+    assert.equal(r.clipped, false, `not clipped at ${w}x${h}`);
+    assert.ok(r.sw <= r.iw);
+    await context.close();
+  }
 });
