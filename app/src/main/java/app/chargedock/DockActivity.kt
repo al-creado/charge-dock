@@ -11,15 +11,27 @@ import androidx.core.view.WindowInsetsControllerCompat
 /** The dock as a normal full-screen activity: the preview, and the fallback if the screen saver is unavailable. */
 class DockActivity : Activity() {
     private lateinit var webView: WebView
+    private lateinit var feed: BatteryFeed
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        webView = DockWebViewFactory.create(this) { }
+        webView = DockWebViewFactory.create(this) { feed.onPageLoaded() }
+        feed = BatteryFeed(this, webView)
         webView.setOnLongClickListener { finish(); true }
         setContentView(webView)
         hideSystemBars()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        feed.start()
+    }
+
+    override fun onStop() {
+        feed.stop()
+        super.onStop()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
