@@ -140,7 +140,7 @@
   }
 
   // The hidden effect: hold the battery tile for holdMs, then the ring charges up over chargeMs.
-  const EGG = { holdMs: 2000, chargeMs: 2500 };
+  const EGG = { holdMs: 2000, chargeMs: 1800 };
 
   // The percentage shown while the ring charges up: from the real level to 100 over chargeMs.
   function chargePercent(level, elapsedMs, chargeMs) {

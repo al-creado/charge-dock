@@ -256,9 +256,9 @@ test('every flash has an id, a tint colour and a flight path that ends at the sc
   assert.equal(new Set(FLASHES.map(f => f.tint)).size, FLASHES.length, 'each agent has its own colour');
 });
 
-test('the hold is two seconds and the charge-up takes longer than that', () => {
+test('the hold is two seconds and the charge-up takes under two more', () => {
   assert.equal(EGG.holdMs, 2000);
-  assert.equal(EGG.chargeMs, 2500);
+  assert.equal(EGG.chargeMs, 1800);
 });
 
 test('chargePercent counts from the real level up to 100 over the charge time', () => {

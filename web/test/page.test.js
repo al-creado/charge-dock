@@ -647,7 +647,7 @@ for (const hour12 of [false, true]) {
 }
 
 // ---- hidden: hold the battery tile for five seconds ----
-const HOLD = 2000, CHARGE = 2500;   // hold for 2 s, then the ring charges up for 2.5 s
+const HOLD = 2000, CHARGE = 1800;   // hold for 2 s, then the ring charges up for 1.8 s (while you keep holding)
 const randomZero = () => { Math.random = () => 0; };
 const flashStyle = page => page.evaluate(() => document.getElementById('flash').style.opacity);
 const pct = page => page.textContent('#pct');
@@ -671,12 +671,13 @@ test('holding the battery tile for two seconds charges the ring to 100%, an orb 
   await page.clock.runFor(1100);                       // 1.0 s into the charge-up
   const mid = parseInt(await pct(page), 10);
   assert.ok(mid > 82 && mid < 100, `the percentage is climbing (${mid}%)`);
-  assert.notEqual(await page.textContent('#battSub'), 'Fully flashed', 'not full yet');
+  assert.notEqual(await page.textContent('#battBig'), 'Fully flashed', 'not full yet');
   assert.equal(await orbShown(page), false, 'no orb until the ring is full');
   assert.equal(await flashStyle(page), '0');
   await page.clock.runFor(CHARGE - 1000 + 100);         // just past full
   assert.equal(await pct(page), '100%', 'the ring reaches 100%');
-  assert.equal(await page.textContent('#battSub'), 'Fully flashed');
+  assert.equal(await page.textContent('#battBig'), 'Fully flashed', 'the heading says it');
+  assert.equal(await page.isHidden('#battSub'), true, 'and the line underneath is gone');
   assert.equal(await agent(page), 'phoenix');
   assert.equal(await orbShown(page), true, 'the orb is in flight');
   assert.equal(await flashStyle(page), '0', 'the flash is still winding up');
@@ -688,6 +689,8 @@ test('holding the battery tile for two seconds charges the ring to 100%, an orb 
   await page.clock.runFor(2000);                        // fade and recovery
   assert.equal(await flashStyle(page), '0', 'back to normal');
   assert.equal(await pct(page), '82%', 'the real battery level returns');
+  assert.equal(await page.isVisible('#battSub'), true, 'the line under the heading is back');
+  assert.equal(await page.textContent('#battBig'), 'Charging');
   assert.equal(await page.textContent('#battSub'), 'Full in about 38 min', 'and its text');
   assert.equal(await agent(page), '', 'the effect is cleared');
   await page.mouse.up();
@@ -1034,4 +1037,76 @@ test('by default the dock follows the phone: dark on a dark phone, light on a li
   await page.click('#settingsBtn');
   assert.equal(await page.getAttribute('[data-themeopt="system"]', 'aria-pressed'), 'true', 'Device is the selected option');
   await context.close();
+});
+
+// ---- the charge-up only continues while you keep holding ----
+const ringOffset = page => page.evaluate(() => document.getElementById('ringFill').style.strokeDashoffset);
+
+test('letting go before 100% puts everything back and nothing flashes', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
+  await page.evaluate(() => window.setBattery(0.82, true, 2280));
+  const before = await ringOffset(page);
+  await press(page, '#battTile');
+  await page.clock.runFor(HOLD + 900);                       // half way through the charge-up
+  assert.ok(parseInt(await pct(page), 10) > 82, 'it was charging');
+  await page.mouse.up();                                     // ...and you let go
+  assert.equal(await pct(page), '82%', 'the real level is back straight away');
+  assert.equal(await page.textContent('#battBig'), 'Charging');
+  assert.equal(await page.isVisible('#battSub'), true);
+  assert.equal(await ringOffset(page), before, 'the ring is back where it was');
+  await page.clock.runFor(10000);
+  assert.equal(await pct(page), '82%', 'it never goes on to 100%');
+  assert.equal(await orbShown(page), false);
+  assert.equal(await flashStyle(page), '0');
+  assert.equal(await agent(page), '');
+  await context.close();
+});
+
+test('sliding away mid-charge also puts everything back', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
+  await page.evaluate(() => window.setBattery(0.82, true, 2280));
+  const { x, y } = await press(page, '#battTile');
+  await page.clock.runFor(HOLD + 900);
+  await page.mouse.move(x + 80, y + 40);
+  assert.equal(await pct(page), '82%');
+  await page.clock.runFor(10000);
+  assert.equal(await flashStyle(page), '0');
+  await page.mouse.up();
+  await context.close();
+});
+
+test('after a cancelled attempt you can start again and it completes', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
+  await page.evaluate(() => window.setBattery(0.82, true, 2280));
+  await press(page, '#battTile'); await page.clock.runFor(HOLD + 500); await page.mouse.up();
+  assert.equal(await pct(page), '82%');
+  await press(page, '#battTile'); await page.clock.runFor(HOLD + CHARGE + 100);
+  assert.equal(await pct(page), '100%');
+  assert.equal(await orbShown(page), true);
+  await page.mouse.up();
+  await context.close();
+});
+
+test('once it has reached 100%, letting go does not stop the flash', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero });
+  await page.evaluate(() => window.setBattery(0.82, true, 2280));
+  await press(page, '#battTile'); await page.clock.runFor(HOLD + CHARGE + 100);
+  await page.mouse.up();
+  assert.equal(await orbShown(page), true, 'the orb is still in flight');
+  await page.clock.runFor(800);
+  assert.equal(await flashStyle(page), '1', 'and the screen still flashes');
+  await context.close();
+});
+
+test('Fully flashed fits in the battery tile at every size', async () => {
+  for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800]]) {
+    const { page, context } = await open({ width: w, height: h, time: new Date(2026, 10, 17, 12, 15), init: randomZero });
+    await page.evaluate(() => window.setBattery(0.82, true, 2280));
+    await press(page, '#battTile'); await page.clock.runFor(HOLD + CHARGE + 100);
+    const r = await page.evaluate(() => { const t = document.getElementById('battTile'); const b = document.getElementById('battBig').getBoundingClientRect(), c = t.getBoundingClientRect(); return { clipped: t.scrollWidth > t.clientWidth + 1 || t.scrollHeight > t.clientHeight + 1, inside: b.right <= c.right && b.left >= c.left }; });
+    assert.equal(r.clipped, false, `not clipped at ${w}x${h}`);
+    assert.equal(r.inside, true, `heading inside its tile at ${w}x${h}`);
+    await page.mouse.up();
+    await context.close();
+  }
 });
