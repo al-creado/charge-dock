@@ -10,7 +10,11 @@ Built for the Nothing Phone (1), and it should run on any Android 8 or newer pho
 2. Download the artifact **charge-dock-debug-apk** and unzip it. It contains `app-debug.apk`.
 3. Copy the APK to your phone, open it, and allow installing from that app when Android asks.
 
-## Set it up (once)
+## Open it any time
+
+Open **Charge Dock** and tap **Open dock**. It works whether or not the phone is charging. Hold the clock to leave.
+
+## Set it up to start when charging (once)
 
 1. Open **Charge Dock** and tap **Screen saver settings**.
 2. Choose **Charge Dock** as the screen saver.
@@ -19,13 +23,18 @@ Built for the Nothing Phone (1), and it should run on any Android 8 or newer pho
 From then on, when the phone is charging and the screen would go idle, the dock appears.
 It shows after the normal screen timeout, not the instant you plug in.
 
-Tap **Preview dock** in the app to see it any time.
 
 ### If your phone has no Screen saver setting
 
 Some phone makers hide it. Use a free automation app such as MacroDroid or Tasker with this rule:
 when the charger connects, open Charge Dock, then tap **Preview dock** (or launch it directly).
 Preview keeps the screen on while it is showing.
+
+## Notifications (optional)
+
+Tap **Notification access** in the app and allow Charge Dock. The dock then shows how many notifications you
+have, per app, such as "Mail 2". It reads only which app posted each one, never the title or message text,
+and nothing leaves the phone. Ongoing ones (music, downloads) are not counted.
 
 ## Using the dock
 
@@ -39,7 +48,7 @@ Preview keeps the screen on while it is showing.
 
 ## Notes
 
-- Weather is sample data for now.
+- Weather is sample data for now (the temperature on the clock tile is marked "sample").
 - The app works fully offline. There is no alarm yet.
 
 ## Development

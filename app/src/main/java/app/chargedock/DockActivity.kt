@@ -9,10 +9,11 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
-/** The dock as a normal full-screen activity: the preview, and the fallback if the screen saver is unavailable. */
+/** The dock as a normal full-screen activity: opened from the app, charging or not. */
 class DockActivity : Activity() {
     private lateinit var webView: WebView
-    private lateinit var feed: BatteryFeed
+    private lateinit var battery: BatteryFeed
+    private lateinit var notifications: NotificationFeed
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -20,22 +21,25 @@ class DockActivity : Activity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         webView = DockWebViewFactory.create(
             this,
-            onPageLoaded = { feed.onPageLoaded() },
+            onPageLoaded = { battery.onPageLoaded(); notifications.onPageLoaded() },
             onExit = { finish() },
             onRenderGone = { recreate() },
         )
-        feed = BatteryFeed(this, webView)
+        battery = BatteryFeed(this, webView)
+        notifications = NotificationFeed(this, webView)
         setContentView(webView)
         hideSystemBars()
     }
 
     override fun onStart() {
         super.onStart()
-        feed.start()
+        battery.start()
+        notifications.start()
     }
 
     override fun onStop() {
-        feed.stop()
+        battery.stop()
+        notifications.stop()
         super.onStop()
     }
 

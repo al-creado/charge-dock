@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Charge Dock</string>
-    <string name="btn_preview">Preview dock</string>
-    <string name="btn_dream_settings">Screen saver settings</string>
-    <string name="setup_steps">1. Tap Screen saver settings.\n2. Choose Charge Dock.\n3. Set When to start to While charging.</string>
     <string name="setup_missing">Could not open Screen saver settings. Look in Settings, Display, Screen saver.</string>
+    <string name="notif_missing">Could not open Notification access. Look in Settings, Apps, Special app access.</string>
 </resources>

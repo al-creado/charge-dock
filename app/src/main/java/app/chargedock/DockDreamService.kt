@@ -8,7 +8,8 @@ import android.webkit.WebView
 /** The screen saver: Android starts this while the phone is charging and the screen would go idle. */
 class DockDreamService : DreamService() {
     private var webView: WebView? = null
-    private var feed: BatteryFeed? = null
+    private var battery: BatteryFeed? = null
+    private var notifications: NotificationFeed? = null
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
@@ -22,12 +23,13 @@ class DockDreamService : DreamService() {
         }
         val view = DockWebViewFactory.create(
             this,
-            onPageLoaded = { feed?.onPageLoaded() },
+            onPageLoaded = { battery?.onPageLoaded(); notifications?.onPageLoaded() },
             onExit = { finish() },
             onRenderGone = { finish() },
         )
         webView = view
-        feed = BatteryFeed(this, view)
+        battery = BatteryFeed(this, view)
+        notifications = NotificationFeed(this, view)
         setContentView(view)
     }
 
@@ -38,18 +40,21 @@ class DockDreamService : DreamService() {
 
     override fun onDreamingStarted() {
         super.onDreamingStarted()
-        feed?.start()
+        battery?.start()
+        notifications?.start()
     }
 
     override fun onDreamingStopped() {
-        feed?.stop()
+        battery?.stop()
+        notifications?.stop()
         super.onDreamingStopped()
     }
 
     override fun onDetachedFromWindow() {
         webView?.destroy()
         webView = null
-        feed = null
+        battery = null
+        notifications = null
         super.onDetachedFromWindow()
     }
 }

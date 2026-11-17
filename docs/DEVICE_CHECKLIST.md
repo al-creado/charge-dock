@@ -4,11 +4,12 @@ Tick each line pass or fail. Any fail is a bug to report.
 
 ## Install and preview
 - [ ] The APK installs and **Charge Dock** appears in the app list.
-- [ ] Opening the app shows the title, three setup lines, and two buttons.
-- [ ] **Preview dock** shows the dock full screen and the screen stays on.
+- [ ] Opening the app shows the styled front page: dot-matrix title, a red **Open dock** button, a start-when-charging card and a notifications card.
+- [ ] **Open dock** shows the dock while the phone is not charging.
+- [ ] **Open dock** shows the dock full screen and the screen stays on.
 - [ ] The battery tile shows the real percentage and says **Charging** when plugged in.
 - [ ] Rotating the phone keeps the layout intact in both directions.
-- [ ] With rotation locked to portrait, **Preview dock** still opens in landscape.
+- [ ] With rotation locked to portrait, **Open dock** still opens in landscape.
 
 ## Screen saver
 - [ ] **Screen saver settings** opens a page where Charge Dock can be chosen. If not, note what opened instead.
@@ -28,6 +29,13 @@ Tick each line pass or fail. Any fail is a bug to report.
 - [ ] A custom accent colour can be picked with the sliders and by pasting a hex code like `#3399ff`.
 - [ ] Settings are still there after closing and reopening the dock.
 - [ ] The **Turn down visual effects** switch is in Settings. With it off, the clock colon blinks and holding the battery tile for two seconds charges the ring up to 100% and flashes once (a single pulse, not a strobe). With it on, the colon is steady and holding does nothing.
+
+## Notifications
+- [ ] The notifications card shows **Off** at first. **Notification access** opens the system page where Charge Dock can be switched on.
+- [ ] After switching it on and coming back, the card shows **On**.
+- [ ] The dock's Notifications tile shows a total and the top apps with counts, and only app names (no message text).
+- [ ] The counts go up when a notification arrives and down when you clear it. Music and downloads are not counted.
+- [ ] With access off, the tile says to turn on notification access.
 
 ## Overnight
 - [ ] After a full night of charging the phone is not hot and the dock still shows the right time.
