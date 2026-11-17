@@ -1427,3 +1427,16 @@ test('a normal wobble of the finger does not cancel holding the clock to leave',
   await f.up();
   await context.close();
 });
+
+for (const hour12 of [false, true]) {
+  test(`the alarm time fits its tile at every size (${hour12 ? '12' : '24'}-hour)`, async () => {
+    for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800]]) {
+      const { page, context } = await open({ width: w, height: h, time: DAY, init: hostStub, settings: { hour12 } });
+      await page.evaluate(ms => window.setNextAlarm(ms), localMs(2026, 11, 18, 10, 55));
+      const r = await page.evaluate(() => { const t = document.getElementById('alarmTile'), b = document.getElementById('alarmTime').getBoundingClientRect(), c = t.getBoundingClientRect(), pad = parseFloat(getComputedStyle(t).paddingLeft); return { clipped: t.scrollWidth > t.clientWidth + 1 || t.scrollHeight > t.clientHeight + 1, inside: b.left >= c.left + pad - 1 && b.right <= c.right - pad + 1 }; });
+      assert.equal(r.clipped, false, `not clipped at ${w}x${h}`);
+      assert.equal(r.inside, true, `time inside the tile's padding at ${w}x${h}`);
+      await context.close();
+    }
+  });
+}
