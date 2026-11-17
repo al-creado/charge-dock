@@ -15,6 +15,7 @@
     --fg: #f4f3f0;
     --muted: #7a7980;
     --accent: #d71921;
+    --on-accent: #ffffff;
     --font: "Space Mono", ui-monospace, "SF Mono", Menlo, monospace;
     --dot: "Doto", "Space Mono", ui-monospace, monospace;
     --dot-weight: 700;
@@ -103,10 +104,21 @@
   .rl { color: var(--fg); font-size: 13px; letter-spacing: .04em; }
   .seg { display: flex; border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
   .seg button { padding: .45em .9em; font-size: 12px; color: var(--muted); }
-  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
   .swatches { display: flex; gap: 10px; }
   .swatches button { width: 26px; height: 26px; border-radius: 50%; background: var(--c); border: 2px solid transparent; }
   .swatches button[aria-pressed="true"] { border-color: var(--fg); box-shadow: 0 0 0 2px var(--surface) inset; }
+  #customSwatch { --c: conic-gradient(#f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+  .row.custom { grid-column: 1 / -1; }
+  .sliders { display: grid; gap: 10px; flex: 1; min-width: 0; }
+  .sliders label { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); align-items: center; gap: 10px; font-size: 12px; color: var(--muted); }
+  .sliders input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 12px; border-radius: 99px; background: var(--track); margin: 0; }
+  .sliders input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 3px solid var(--bg); box-shadow: 0 0 0 1px var(--muted); }
+  .sliders input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid var(--bg); }
+  #hue { --track: linear-gradient(90deg, hsl(0 100% 50%), hsl(60 100% 50%), hsl(120 100% 50%), hsl(180 100% 50%), hsl(240 100% 50%), hsl(300 100% 50%), hsl(360 100% 50%)); }
+  #sat { --track: linear-gradient(90deg, hsl(var(--h) 0% var(--lp)), hsl(var(--h) 100% var(--lp))); }
+  #lig { --track: linear-gradient(90deg, #000, hsl(var(--h) var(--sp) 50%), #fff); }
+  #customHex { font-size: 13px; color: var(--fg); font-variant-numeric: tabular-nums; }
   .step { display: flex; align-items: center; gap: 10px; }
   .step button { width: 32px; height: 32px; border-radius: 50%; background: var(--surface-2); font-size: 18px; line-height: 1; }
   .step output { min-width: 3.6em; text-align: center; font-size: 13px; color: var(--fg); font-variant-numeric: tabular-nums; }
@@ -188,7 +200,16 @@
           <button data-accent="#5be28c" style="--c:#5be28c" aria-label="Green"></button>
           <button data-accent="#4aa3ff" style="--c:#4aa3ff" aria-label="Blue"></button>
           <button data-accent="#f4f3f0" style="--c:#f4f3f0" aria-label="White"></button>
+          <button id="customSwatch" aria-label="Custom colour" aria-pressed="false"></button>
         </div></div>
+      <div class="row custom" id="customRow" hidden>
+        <div class="sliders">
+          <label>Hue <input type="range" id="hue" min="0" max="360" value="0" aria-label="Hue"></label>
+          <label>Saturation <input type="range" id="sat" min="0" max="100" value="100" aria-label="Saturation"></label>
+          <label>Lightness <input type="range" id="lig" min="0" max="100" value="50" aria-label="Lightness"></label>
+        </div>
+        <output id="customHex">#d71921</output>
+      </div>
       <div class="row"><span class="rl">Time format</span>
         <div class="seg"><button data-hour12="false">24-hour</button><button data-hour12="true">12-hour</button></div></div>
       <div class="row"><span class="rl">Week starts on</span>
@@ -218,7 +239,7 @@
   catch (e) { S = DockLogic.normalizeSettings(null); }
   const saveSettings = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
-  let manual = null, lastNight = null, dayKey = '';
+  let manual = null, lastNight = null, dayKey = '', customOpen = false;
 
   // ---- clock, date, week ----
   function tick() {
@@ -247,16 +268,28 @@
   }
 
   // ---- apply settings to the page and the settings screen ----
-  function applySettings() {
+  function applySettings(fromSlider = false) {
     const root = document.documentElement;
     root.dataset.font = S.font;
     root.dataset.hour12 = String(S.hour12);
-    root.style.setProperty('--accent', S.accent);
+    const shown = DockLogic.visibleAccent(S.accent);
+    root.style.setProperty('--accent', shown);
+    root.style.setProperty('--on-accent', DockLogic.onAccent(shown));
     root.style.setProperty('--dim-opacity', String(S.dimLevel / 100));
     document.body.classList.toggle('red', S.red);
     const mark = (attr, value) => document.querySelectorAll('[data-' + attr + ']').forEach(b =>
       b.setAttribute('aria-pressed', String(b.dataset[attr] === String(value))));
     mark('font', S.font); mark('accent', S.accent); mark('hour12', S.hour12); mark('weekstart', S.weekStart);
+    const preset = DockLogic.ACCENTS.includes(S.accent);
+    $('customSwatch').setAttribute('aria-pressed', String(!preset));
+    if (preset) $('customSwatch').style.removeProperty('--c'); else $('customSwatch').style.setProperty('--c', S.accent);
+    $('customRow').hidden = preset && !customOpen;
+    const hsl = DockLogic.hexToHsl(S.accent);
+    if (!fromSlider) { $('hue').value = hsl.h; $('sat').value = hsl.s; $('lig').value = hsl.l; }
+    $('customRow').style.setProperty('--h', $('hue').value);
+    $('customRow').style.setProperty('--sp', $('sat').value + '%');
+    $('customRow').style.setProperty('--lp', $('lig').value + '%');
+    $('customHex').textContent = S.accent;
     $('setAuto').setAttribute('aria-checked', String(S.autoDim));
     $('startValue').textContent = pad(S.dimStart) + ':00';
     $('endValue').textContent = pad(S.dimEnd) + ':00';
@@ -280,16 +313,22 @@
     startPlus: () => { S.dimStart = (S.dimStart + 1) % 24; },
     endMinus: () => { S.dimEnd = (S.dimEnd + 23) % 24; },
     endPlus: () => { S.dimEnd = (S.dimEnd + 1) % 24; },
-    resetSettings: () => { S = DockLogic.normalizeSettings(null); manual = null; },
+    resetSettings: () => { S = DockLogic.normalizeSettings(null); manual = null; customOpen = false; },
+    customSwatch: () => { customOpen = true; },
   };
   settings.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     const d = b.dataset;
     if (d.font) change(() => { S.font = d.font; });
-    else if (d.accent) change(() => { S.accent = d.accent; });
+    else if (d.accent) change(() => { S.accent = d.accent; customOpen = false; });
     else if (d.hour12) change(() => { S.hour12 = d.hour12 === 'true'; });
     else if (d.weekstart) change(() => { S.weekStart = Number(d.weekstart); });
     else if (actions[b.id]) change(actions[b.id]);
+  });
+
+  $('customRow').addEventListener('input', () => {
+    S.accent = DockLogic.hslToHex(Number($('hue').value), Number($('sat').value), Number($('lig').value));
+    saveSettings(); applySettings(true);
   });
 
   // ---- quick controls ----

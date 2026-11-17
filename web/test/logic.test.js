@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS } = require('../dock-logic.js');
+const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent } = require('../dock-logic.js');
 
 const at = (y, m, d, h = 12, min = 0) => new Date(y, m - 1, d, h, min);
 
@@ -109,6 +109,46 @@ test('normalizeSettings keeps valid values and clamps the dim level', () => {
 });
 
 test('normalizeSettings replaces invalid values with defaults', () => {
-  const s = normalizeSettings({ font: 'comic', accent: '#123456', dimStart: 25, dimEnd: -1, weekStart: 3, autoDim: 'yes', dimLevel: 'bright', hour12: 1 });
+  const s = normalizeSettings({ font: 'comic', accent: '#12345', dimStart: 25, dimEnd: -1, weekStart: 3, autoDim: 'yes', dimLevel: 'bright', hour12: 1 });
   assert.deepEqual(s, DEFAULT_SETTINGS);
+});
+
+test('hslToHex converts known colours', () => {
+  assert.equal(hslToHex(210, 100, 60), '#3399ff');
+  assert.equal(hslToHex(0, 100, 50), '#ff0000');
+  assert.equal(hslToHex(360, 100, 50), '#ff0000');
+  assert.equal(hslToHex(0, 0, 0), '#000000');
+  assert.equal(hslToHex(0, 0, 100), '#ffffff');
+});
+
+test('hexToHsl converts known colours', () => {
+  assert.deepEqual(hexToHsl('#ff0000'), { h: 0, s: 100, l: 50 });
+  assert.deepEqual(hexToHsl('#3399ff'), { h: 210, s: 100, l: 60 });
+  assert.deepEqual(hexToHsl('#808080'), { h: 0, s: 0, l: 50 });
+});
+
+test('luminance of black and white', () => {
+  assert.equal(luminance('#000000'), 0);
+  assert.ok(Math.abs(luminance('#ffffff') - 1) < 1e-9);
+});
+
+test('visibleAccent keeps readable colours and lifts dark ones', () => {
+  assert.equal(visibleAccent('#d71921'), '#d71921');
+  assert.equal(visibleAccent('#ffb25b'), '#ffb25b');
+  assert.ok(luminance(visibleAccent('#000000')) >= 0.12);
+  assert.ok(luminance(visibleAccent('#000033')) >= 0.12);
+  assert.equal(visibleAccent('not-a-colour'), '#d71921');
+});
+
+test('onAccent picks black or white text for contrast', () => {
+  assert.equal(onAccent('#f4f3f0'), '#000000');
+  assert.equal(onAccent('#4aa3ff'), '#000000');
+  assert.equal(onAccent('#d71921'), '#ffffff');
+});
+
+test('normalizeSettings accepts any six-digit hex accent and lowercases it', () => {
+  assert.equal(normalizeSettings({ accent: '#12AB34' }).accent, '#12ab34');
+  for (const bad of ['#12345', '#gggggg', 'red', '12ab34', 'javascript:1', '#1234567']) {
+    assert.equal(normalizeSettings({ accent: bad }).accent, '#d71921', bad);
+  }
 });

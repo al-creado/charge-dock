@@ -41,8 +41,57 @@
     return { pct, big: 'Charging', sub: 'Time to full unknown' };
   }
 
+  // ---- colour helpers (hex strings are '#rrggbb') ----
+  const HEX = /^#[0-9a-f]{6}$/i;
+  const parseHex = hex => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const toHex = (r, g, b) => '#' + [r, g, b].map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+
+  // WCAG relative luminance, 0 (black) to 1 (white).
+  function luminance(hex) {
+    const [r, g, b] = parseHex(hex).map(c => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+
+  // h 0..360, s and l 0..100 to '#rrggbb'.
+  function hslToHex(h, s, l) {
+    const S = s / 100, L = l / 100, k = n => (n + h / 30) % 12, a = S * Math.min(L, 1 - L);
+    const f = n => L - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return toHex(f(0) * 255, f(8) * 255, f(4) * 255);
+  }
+
+  // '#rrggbb' to { h 0..360, s 0..100, l 0..100 }, rounded.
+  function hexToHsl(hex) {
+    const [r, g, b] = parseHex(hex).map(c => c / 255);
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min, l = (max + min) / 2;
+    let h = 0;
+    if (d !== 0) {
+      if (max === r) h = ((g - b) / d) % 6; else if (max === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+      h *= 60; if (h < 0) h += 360;
+    }
+    const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+    return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) };
+  }
+
+  // An accent that is too dark to see on the dark tiles is lightened until it can be.
+  function visibleAccent(hex, minLuminance = 0.12) {
+    if (typeof hex !== 'string' || !HEX.test(hex)) return DEFAULT_ACCENT;
+    const rgb = parseHex(hex);
+    let out = hex.toLowerCase();
+    for (let t = 0.05; luminance(out) < minLuminance && t <= 1.0001; t += 0.05) {
+      out = toHex(...rgb.map(c => c + (255 - c) * t));
+    }
+    return out;
+  }
+
+  // Text colour (black or white) that reads best on top of the accent.
+  function onAccent(hex) {
+    const L = luminance(hex);
+    return 1.05 / (L + 0.05) > (L + 0.05) / 0.05 ? '#ffffff' : '#000000';
+  }
+
   const FONTS = ['dot', 'mono', 'sans'];
   const ACCENTS = ['#d71921', '#ffb25b', '#5be28c', '#4aa3ff', '#f4f3f0'];
+  const DEFAULT_ACCENT = '#d71921';
   const DEFAULT_SETTINGS = {
     font: 'dot', accent: '#d71921', hour12: false, autoDim: true,
     dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false,
@@ -57,7 +106,7 @@
     const level = Number.isFinite(r.dimLevel) ? Math.min(80, Math.max(10, Math.round(r.dimLevel))) : d.dimLevel;
     return {
       font: FONTS.includes(r.font) ? r.font : d.font,
-      accent: ACCENTS.includes(r.accent) ? r.accent : d.accent,
+      accent: typeof r.accent === 'string' && HEX.test(r.accent) ? r.accent.toLowerCase() : d.accent,
       hour12: bool(r.hour12, d.hour12),
       autoDim: bool(r.autoDim, d.autoDim),
       dimStart: hour(r.dimStart, d.dimStart),
@@ -68,7 +117,7 @@
     };
   }
 
-  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS };
+  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.DockLogic = api;
 })(typeof window !== 'undefined' ? window : globalThis);

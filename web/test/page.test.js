@@ -282,3 +282,78 @@ test('corrupt stored settings fall back to defaults without errors', async () =>
     await context.close();
   }
 });
+
+// Sets a range input the way a finger drag would.
+const slide = (page, sel, value) => page.locator(sel).evaluate((el, v) => {
+  el.value = String(v); el.dispatchEvent(new Event('input', { bubbles: true }));
+}, value);
+const accentVar = page => page.evaluate(() => document.documentElement.style.getPropertyValue('--accent').trim());
+
+test('custom colour picker sets the accent from sliders', async () => {
+  const { page, context } = await open();
+  await page.click('#settingsBtn');
+  assert.equal(await page.isVisible('#customRow'), false);
+  await page.click('#customSwatch');
+  assert.equal(await page.isVisible('#customRow'), true);
+  await slide(page, '#hue', 210); await slide(page, '#sat', 100); await slide(page, '#lig', 60);
+  assert.equal(await accentVar(page), '#3399ff');
+  assert.equal(await page.textContent('#customHex'), '#3399ff');
+  assert.equal(await page.getAttribute('#customSwatch', 'aria-pressed'), 'true');
+  assert.equal(await page.getAttribute('[data-accent="#d71921"]', 'aria-pressed'), 'false');
+  await context.close();
+});
+
+test('custom colour survives a reload and opens with its sliders in place', async () => {
+  const { page, context } = await open();
+  await page.click('#settingsBtn');
+  await page.click('#customSwatch');
+  await slide(page, '#hue', 210); await slide(page, '#sat', 100); await slide(page, '#lig', 60);
+  await page.reload();
+  assert.equal(await accentVar(page), '#3399ff');
+  await page.click('#settingsBtn');
+  assert.equal(await page.isVisible('#customRow'), true, 'custom row is open for a custom accent');
+  assert.equal(await page.inputValue('#hue'), '210');
+  await context.close();
+});
+
+test('a too-dark custom colour is lifted so the accent stays visible', async () => {
+  const { page, context } = await open();
+  await page.click('#settingsBtn');
+  await page.click('#customSwatch');
+  await slide(page, '#lig', 0);
+  const shown = await accentVar(page);
+  assert.notEqual(shown, '#000000');
+  assert.notEqual(shown, '#000');
+  await context.close();
+});
+
+test('selected buttons stay readable on a light accent', async () => {
+  const { page, context } = await open();
+  await page.click('#settingsBtn');
+  await page.click('[data-accent="#f4f3f0"]');
+  assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue('--on-accent').trim()), '#000000');
+  await page.click('[data-accent="#d71921"]');
+  assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue('--on-accent').trim()), '#ffffff');
+  await context.close();
+});
+
+test('reset also clears a custom colour', async () => {
+  const { page, context } = await open({ settings: { accent: '#3399ff' } });
+  await page.click('#settingsBtn');
+  await page.click('#resetSettings');
+  assert.equal(await accentVar(page), '#d71921');
+  assert.equal(await page.isVisible('#customRow'), false);
+  await context.close();
+});
+
+test('the colour picker fits on small landscape screens', async () => {
+  const { page, context } = await open({ width: 800, height: 360 });
+  await page.click('#settingsBtn');
+  await page.click('#customSwatch');
+  await page.locator('#lig').scrollIntoViewIfNeeded();
+  const box = await page.locator('#lig').boundingBox();
+  assert.ok(box.x >= 0 && box.x + box.width <= 800 && box.y >= 0 && box.y + box.height <= 360, 'lightness slider on screen');
+  const closeBox = await page.locator('#settingsClose').boundingBox();
+  assert.ok(closeBox.y >= 0 && closeBox.y + closeBox.height <= 360, 'close stays reachable');
+  await context.close();
+});
