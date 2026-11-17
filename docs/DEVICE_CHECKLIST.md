@@ -25,7 +25,8 @@ Tick each line pass or fail. Any fail is a bug to report.
 - [ ] Tapping the clock tile toggles red night mode.
 - [ ] **Dim** and **Bright** work, and the dock dims by itself after 22:00.
 - [ ] Settings opens with the gear, and every setting changes the dock straight away.
-- [ ] **Theme: Device** follows the phone's dark mode. Turn dark mode on and off and check.
+- [ ] **Theme: Device** is the default and follows the phone's dark mode on the dock and on the front page. Turn dark mode on and off and check both.
+- [ ] The front page's status bar area matches its theme (dark bar in dark, light bar with dark icons in light).
 - [ ] A custom accent colour can be picked with the sliders and by pasting a hex code like `#3399ff`.
 - [ ] Settings are still there after closing and reopening the dock.
 - [ ] The **Turn down visual effects** switch is in Settings. With it off, the clock colon blinks and holding the battery tile for two seconds charges the ring up to 100% and flashes once (a single pulse, not a strobe). With it on, the colon is steady and holding does nothing.

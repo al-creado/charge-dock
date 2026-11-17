@@ -15,6 +15,7 @@
     --gap: clamp(14px, 4vw, 22px);
     color-scheme: dark;
   }
+  :root[data-theme="light"] { --bg: #f2f2f4; --surface: #ffffff; --surface-2: #e8e8ec; --line: #d4d4da; --fg: #101012; --muted: #6c6b73; --good: #1f9d55; color-scheme: light; }
   * { box-sizing: border-box; margin: 0; }
   html { -webkit-tap-highlight-color: transparent; }
   body { background: var(--bg); color: var(--fg); font-family: var(--font); -webkit-user-select: none; user-select: none;
@@ -71,8 +72,31 @@
   <p class="tip">Hold the clock to leave the dock.</p>
 </main>
 
+<script src="dock-logic.js"></script>
 <script>
   const $ = id => document.getElementById(id);
+  // ---- theme: the same saved choice as the dock (dark, light or the phone's), and the same accent colour ----
+  let S;
+  try { S = DockLogic.normalizeSettings(JSON.parse(localStorage.getItem('charge-dock-settings'))); }
+  catch (e) { S = DockLogic.normalizeSettings(null); }
+  let systemDark = true, systemFromApp = false;
+  function paint() {
+    const resolved = DockLogic.resolveTheme(S.theme, systemDark, false);
+    const accent = DockLogic.visibleAccent(S.accent, resolved), root = document.documentElement;
+    root.dataset.theme = resolved;
+    root.style.setProperty('--accent', accent);
+    root.style.setProperty('--on-accent', DockLogic.onAccent(accent));
+    const h = window.SetupHost;
+    if (h && typeof h.setTheme === 'function') h.setTheme(resolved === 'dark');   // lets the app colour the status bar to match
+  }
+  try {
+    const mq = matchMedia('(prefers-color-scheme: dark)');
+    systemDark = mq.matches;
+    mq.addEventListener('change', e => { if (systemFromApp) return; systemDark = e.matches; paint(); });
+  } catch (e) {}
+  window.setSystemTheme = isDark => { systemFromApp = true; systemDark = !!isDark; paint(); };
+  paint();
+
   // The Android app provides window.SetupHost; in a plain browser the buttons simply do nothing.
   const call = name => () => { const h = window.SetupHost; if (h && typeof h[name] === 'function') h[name](); };
   $('openDock').onclick = call('openDock');

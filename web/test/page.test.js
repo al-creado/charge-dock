@@ -10,7 +10,7 @@ test.after(async () => { await browser.close(); });
 
 // Opens the page in a fresh context; collects errors and any non-file network requests.
 async function open({ width = 915, height = 412, time, settings, rawStorage, init } = {}) {
-  const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
+  const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1, colorScheme: 'dark' });
   const page = await context.newPage();
   page.setDefaultTimeout(2000);
   const problems = [], external = [];
@@ -1023,5 +1023,15 @@ test('the dates in the week cards are centred by their drawn dots', async () => 
     return inkCx + shift - (c.left + c.width / 2);
   }));
   for (const o of offs) assert.ok(Math.abs(o) <= 0.6, `ink off centre by ${o.toFixed(2)}px`);
+  await context.close();
+});
+
+test('by default the dock follows the phone: dark on a dark phone, light on a light phone', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15) });
+  assert.equal(await theme(page), 'dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
+  await page.click('#settingsBtn');
+  assert.equal(await page.getAttribute('[data-themeopt="system"]', 'aria-pressed'), 'true', 'Device is the selected option');
   await context.close();
 });

@@ -40,7 +40,7 @@ and nothing leaves the phone. Ongoing ones (music, downloads) are not counted.
 
 - Swipe the tiles left and right, or tap the dots, to change page.
 - **Night** (or tap the clock) turns everything red. **Dim** dims or brightens by hand.
-- The gear opens **Settings**: clock font, theme (dark, light or device default), accent colour
+- The gear opens **Settings**: clock font, theme (device default, dark or light; the front page follows it too), accent colour
   (including a custom colour you can paste as a hex code), 12 or 24-hour time, week start,
   and the hours and level for auto-dim.
 - A long press on the clock tile, the power button, or unplugging leaves the dock.

@@ -31,7 +31,7 @@ object DockWebViewFactory {
 
     /** The app's front page, with [host] available to it as `SetupHost`. */
     fun createSetup(context: Context, host: SetupHost, onPageLoaded: () -> Unit, onRenderGone: () -> Unit): WebView =
-        build(context, SETUP_URL, "SetupHost", host, false, onPageLoaded, onRenderGone)
+        build(context, SETUP_URL, "SetupHost", host, true, onPageLoaded, onRenderGone)
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     private fun build(

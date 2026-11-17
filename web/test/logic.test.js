@@ -91,7 +91,7 @@ test('normalizeSettings returns defaults for missing or non-object input', () =>
     assert.deepEqual(normalizeSettings(bad), DEFAULT_SETTINGS);
   }
   assert.deepEqual(DEFAULT_SETTINGS, {
-    font: 'dot', theme: 'dark', accent: '#d71921', hour12: false, autoDim: true,
+    font: 'dot', theme: 'system', accent: '#d71921', hour12: false, autoDim: true,
     dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false, reduceEffects: false,
   });
 });
@@ -168,11 +168,12 @@ test('parseHexInput rejects anything that is not a hex colour', () => {
   }
 });
 
-test('normalizeSettings theme: dark by default, light and system allowed, junk rejected', () => {
-  assert.equal(normalizeSettings({}).theme, 'dark');
+test('normalizeSettings theme: follows the device by default, dark and light allowed, junk rejected', () => {
+  assert.equal(normalizeSettings({}).theme, 'system');
   assert.equal(normalizeSettings({ theme: 'light' }).theme, 'light');
+  assert.equal(normalizeSettings({ theme: 'dark' }).theme, 'dark');
   assert.equal(normalizeSettings({ theme: 'system' }).theme, 'system');
-  for (const bad of ['blue', '', 7, null, 'DARK']) assert.equal(normalizeSettings({ theme: bad }).theme, 'dark', String(bad));
+  for (const bad of ['blue', '', 7, null, 'DARK']) assert.equal(normalizeSettings({ theme: bad }).theme, 'system', String(bad));
 });
 
 test('resolveTheme follows the setting, the device, and dimming', () => {

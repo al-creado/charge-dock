@@ -161,7 +161,7 @@
   const ACCENTS = ['#d71921', '#ffb25b', '#5be28c', '#4aa3ff', '#f4f3f0'];
   const DEFAULT_ACCENT = '#d71921';
   const DEFAULT_SETTINGS = {
-    font: 'dot', theme: 'dark', accent: '#d71921', hour12: false, autoDim: true,
+    font: 'dot', theme: 'system', accent: '#d71921', hour12: false, autoDim: true,
     dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false, reduceEffects: false,
   };
 

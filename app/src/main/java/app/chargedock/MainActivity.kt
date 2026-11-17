@@ -3,7 +3,6 @@ package app.chargedock
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.graphics.Color
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
@@ -13,6 +12,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 
 /** The app's front page: a styled web page (setup.html) with buttons for opening the dock and the system settings. */
 class MainActivity : Activity() {
@@ -22,12 +22,12 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = Color.BLACK
-        window.navigationBarColor = Color.BLACK
+        applyBars(dark = true)   // until the page says which theme it is showing
         val host = SetupHost(
             onOpenDock = { startActivity(Intent(this, DockActivity::class.java)) },
             onOpenScreenSaverSettings = ::openDreamSettings,
             onOpenNotificationAccess = ::openNotificationAccess,
+            onTheme = ::applyBars,
         )
         webView = DockWebViewFactory.createSetup(
             this,
@@ -54,6 +54,18 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         webView.destroy()
         super.onDestroy()
+    }
+
+    /** Colours the area behind the status and navigation bars to match the page, and flips their icons for contrast. */
+    private fun applyBars(dark: Boolean) {
+        val colour = if (dark) 0xFF050506.toInt() else 0xFFF2F2F4.toInt()
+        window.decorView.setBackgroundColor(colour)
+        window.statusBarColor = colour
+        window.navigationBarColor = colour
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !dark
+            isAppearanceLightNavigationBars = !dark
+        }
     }
 
     private fun reportAccess() {
