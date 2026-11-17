@@ -92,7 +92,7 @@ test('normalizeSettings returns defaults for missing or non-object input', () =>
   }
   assert.deepEqual(DEFAULT_SETTINGS, {
     font: 'dot', theme: 'dark', accent: '#d71921', hour12: false, autoDim: true,
-    dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false, flash: true,
+    dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false, reduceEffects: false,
   });
 });
 
@@ -206,10 +206,10 @@ test('formatHour shows 24-hour and 12-hour hours', () => {
   assert.equal(formatHour(23, true), '11:00 PM');
 });
 
-test('flash effects setting defaults to on and rejects junk', () => {
-  assert.equal(normalizeSettings({}).flash, true);
-  assert.equal(normalizeSettings({ flash: false }).flash, false);
-  for (const bad of ['no', 0, null]) assert.equal(normalizeSettings({ flash: bad }).flash, true, String(bad));
+test('turn down visual effects defaults to off, accepts true, rejects junk', () => {
+  assert.equal(normalizeSettings({}).reduceEffects, false);
+  assert.equal(normalizeSettings({ reduceEffects: true }).reduceEffects, true);
+  for (const bad of ['yes', 1, null]) assert.equal(normalizeSettings({ reduceEffects: bad }).reduceEffects, false, String(bad));
 });
 
 test('the flash list is the agents with flash abilities', () => {

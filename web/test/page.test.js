@@ -721,8 +721,8 @@ test('the same agent never flashes twice in a row', async () => {
   await context.close();
 });
 
-test('with flash effects off, holding does nothing', async () => {
-  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero, settings: { flash: false } });
+test('with visual effects turned down, holding does nothing', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: randomZero, settings: { reduceEffects: true } });
   await page.evaluate(() => window.setBattery(0.82, true, 2280));
   await press(page, '#battTile'); await page.clock.runFor(5300);
   assert.equal(await pct(page), '82%', 'ring does not jump to full');
@@ -746,15 +746,15 @@ test('with reduce-motion on, the ring still fills but the screen never goes whit
   await context.close();
 });
 
-test('flash effects can be switched off in settings and the choice is remembered', async () => {
+test('the turn-down-effects switch is off by default, can be turned on, and is remembered', async () => {
   const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15) });
   await page.click('#settingsBtn');
-  assert.equal(await page.getAttribute('#setFlash', 'aria-checked'), 'true');
-  await page.click('#setFlash');
-  assert.equal(await page.getAttribute('#setFlash', 'aria-checked'), 'false');
+  assert.equal(await page.getAttribute('#setReduce', 'aria-checked'), 'false');
+  await page.click('#setReduce');
+  assert.equal(await page.getAttribute('#setReduce', 'aria-checked'), 'true');
   await page.reload();
   await page.click('#settingsBtn');
-  assert.equal(await page.getAttribute('#setFlash', 'aria-checked'), 'false');
+  assert.equal(await page.getAttribute('#setReduce', 'aria-checked'), 'true');
   await context.close();
 });
 
@@ -820,5 +820,35 @@ test('settings rows have the same gap across and down', async () => {
   await page.click('#settingsBtn');
   const g = await page.evaluate(() => { const s = getComputedStyle(document.querySelector('.rows')); return [parseFloat(s.rowGap), parseFloat(s.columnGap)]; });
   assert.equal(g[0], g[1]);
+  await context.close();
+});
+
+const colonAnimation = page => page.evaluate(() => getComputedStyle(document.querySelector('.colon')).animationName);
+
+test('the switch is called Turn down visual effects and gives nothing else away', async () => {
+  const { page, context } = await open();
+  await page.click('#settingsBtn');
+  assert.equal(await page.getAttribute('#setReduce', 'aria-label'), 'Turn down visual effects');
+  const labels = await page.evaluate(() => [...document.querySelectorAll('#settings .rl')].map(e => e.textContent));
+  assert.ok(labels.includes('Turn down visual effects'));
+  assert.equal(labels.some(l => /flash|surprise|egg/i.test(l)), false);
+  await context.close();
+});
+
+test('the clock colon blinks by default and stops when visual effects are turned down', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15) });
+  assert.notEqual(await colonAnimation(page), 'none');
+  await page.click('#settingsBtn');
+  await page.click('#setReduce');
+  assert.equal(await colonAnimation(page), 'none', 'colon is steady');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.colon')).opacity), '1');
+  await page.click('#setReduce');
+  assert.notEqual(await colonAnimation(page), 'none', 'and blinks again when turned back on');
+  await context.close();
+});
+
+test('a steady colon stays steady after a reload', async () => {
+  const { page, context } = await open({ settings: { reduceEffects: true } });
+  assert.equal(await colonAnimation(page), 'none');
   await context.close();
 });

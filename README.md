@@ -35,7 +35,7 @@ Preview keeps the screen on while it is showing.
   (including a custom colour you can paste as a hex code), 12 or 24-hour time, week start,
   and the hours and level for auto-dim.
 - A long press on the clock tile, the power button, or unplugging leaves the dock.
-- Settings also has a **Flash effects** switch. Turn it off if you do not want any full-screen flashes.
+- Settings also has a **Turn down visual effects** switch. Turn it on for a steady clock colon and no hidden full-screen effects.
 
 ## Notes
 

@@ -130,7 +130,7 @@
   const DEFAULT_ACCENT = '#d71921';
   const DEFAULT_SETTINGS = {
     font: 'dot', theme: 'dark', accent: '#d71921', hour12: false, autoDim: true,
-    dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false, flash: true,
+    dimStart: 22, dimEnd: 7, dimLevel: 30, weekStart: 1, red: false, reduceEffects: false,
   };
 
   // Turns anything read from storage into a complete, valid settings object.
@@ -151,7 +151,7 @@
       dimLevel: level,
       weekStart: r.weekStart === 0 || r.weekStart === 1 ? r.weekStart : d.weekStart,
       red: bool(r.red, d.red),
-      flash: bool(r.flash, d.flash),
+      reduceEffects: bool(r.reduceEffects, d.reduceEffects),
     };
   }
 

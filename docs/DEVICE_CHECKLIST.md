@@ -23,7 +23,7 @@ Tick each line pass or fail. Any fail is a bug to report.
 - [ ] **Theme: Device** follows the phone's dark mode. Turn dark mode on and off and check.
 - [ ] A custom accent colour can be picked with the sliders and by pasting a hex code like `#3399ff`.
 - [ ] Settings are still there after closing and reopening the dock.
-- [ ] The **Flash effects** switch is in Settings. With it on, holding the battery tile for five seconds fills the ring and flashes once; with it off, nothing happens. The flash is a single pulse, not a strobe.
+- [ ] The **Turn down visual effects** switch is in Settings. With it off, the clock colon blinks and holding the battery tile for five seconds fills the ring and flashes once (a single pulse, not a strobe). With it on, the colon is steady and holding does nothing.
 
 ## Overnight
 - [ ] After a full night of charging the phone is not hot and the dock still shows the right time.
