@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent } = require('../dock-logic.js');
+const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput } = require('../dock-logic.js');
 
 const at = (y, m, d, h = 12, min = 0) => new Date(y, m - 1, d, h, min);
 
@@ -151,5 +151,19 @@ test('normalizeSettings accepts any six-digit hex accent and lowercases it', () 
   assert.equal(normalizeSettings({ accent: '#12AB34' }).accent, '#12ab34');
   for (const bad of ['#12345', '#gggggg', 'red', '12ab34', 'javascript:1', '#1234567']) {
     assert.equal(normalizeSettings({ accent: bad }).accent, '#d71921', bad);
+  }
+});
+
+test('parseHexInput accepts pasted hex codes in common shapes', () => {
+  assert.equal(parseHexInput('#3399FF'), '#3399ff');
+  assert.equal(parseHexInput('3399ff'), '#3399ff');
+  assert.equal(parseHexInput('  #3399ff \n'), '#3399ff');
+  assert.equal(parseHexInput('#39f'), '#3399ff');
+  assert.equal(parseHexInput('F0A'), '#ff00aa');
+});
+
+test('parseHexInput rejects anything that is not a hex colour', () => {
+  for (const bad of ['', '#', '#12', '#12345', 'zzzzzz', '#3399ffaa', 'rgb(1,2,3)', null, undefined, 42]) {
+    assert.equal(parseHexInput(bad), null, String(bad));
   }
 });

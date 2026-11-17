@@ -140,7 +140,9 @@
   #hue { --track: linear-gradient(90deg, hsl(0 100% 50%), hsl(60 100% 50%), hsl(120 100% 50%), hsl(180 100% 50%), hsl(240 100% 50%), hsl(300 100% 50%), hsl(360 100% 50%)); }
   #sat { --track: linear-gradient(90deg, hsl(var(--h) 0% var(--lp)), hsl(var(--h) 100% var(--lp))); }
   #lig { --track: linear-gradient(90deg, #000, hsl(var(--h) var(--sp) 50%), #fff); }
-  #customHex { font-size: 13px; color: var(--fg); font-variant-numeric: tabular-nums; }
+  #customHex { width: 8.2em; padding: .55em .7em; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--fg); font: inherit; font-size: 13px; letter-spacing: .04em; -webkit-user-select: text; user-select: text; text-transform: lowercase; }
+  #customHex:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #customHex[aria-invalid="true"] { border-color: #ff5a4d; }
   .step { display: flex; align-items: center; gap: 10px; }
   .step button { width: 32px; height: 32px; border-radius: 50%; background: var(--surface-2); font-size: 18px; line-height: 1; }
   .step output { min-width: 3.6em; text-align: center; font-size: 13px; color: var(--fg); font-variant-numeric: tabular-nums; }
@@ -230,7 +232,7 @@
           <label>Saturation <input type="range" id="sat" min="0" max="100" value="100" aria-label="Saturation"></label>
           <label>Lightness <input type="range" id="lig" min="0" max="100" value="50" aria-label="Lightness"></label>
         </div>
-        <output id="customHex">#d71921</output>
+        <input type="text" id="customHex" value="#d71921" maxlength="10" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Hex colour code" aria-invalid="false">
       </div>
       <div class="row"><span class="rl">Time format</span>
         <div class="seg"><button data-hour12="false">24-hour</button><button data-hour12="true">12-hour</button></div></div>
@@ -313,7 +315,7 @@
     $('customRow').style.setProperty('--h', $('hue').value);
     $('customRow').style.setProperty('--sp', $('sat').value + '%');
     $('customRow').style.setProperty('--lp', $('lig').value + '%');
-    $('customHex').textContent = S.accent;
+    if (document.activeElement !== $('customHex')) $('customHex').value = S.accent;
     $('setAuto').setAttribute('aria-checked', String(S.autoDim));
     $('startValue').textContent = pad(S.dimStart) + ':00';
     $('endValue').textContent = pad(S.dimEnd) + ':00';
@@ -350,9 +352,22 @@
     else if (actions[b.id]) change(actions[b.id]);
   });
 
-  $('customRow').addEventListener('input', () => {
+  $('customRow').addEventListener('input', e => {
+    if (e.target.type !== 'range') return;
     S.accent = DockLogic.hslToHex(Number($('hue').value), Number($('sat').value), Number($('lig').value));
     saveSettings(); applySettings(true);
+  });
+
+  $('customHex').addEventListener('input', () => {
+    const hex = DockLogic.parseHexInput($('customHex').value);
+    $('customHex').setAttribute('aria-invalid', String(hex === null));
+    if (hex === null) return;
+    customOpen = true;
+    S.accent = hex; saveSettings(); applySettings();
+  });
+  $('customHex').addEventListener('blur', () => {
+    $('customHex').value = S.accent;
+    $('customHex').setAttribute('aria-invalid', 'false');
   });
 
   // ---- quick controls ----

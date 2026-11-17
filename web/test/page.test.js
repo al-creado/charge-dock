@@ -297,7 +297,7 @@ test('custom colour picker sets the accent from sliders', async () => {
   assert.equal(await page.isVisible('#customRow'), true);
   await slide(page, '#hue', 210); await slide(page, '#sat', 100); await slide(page, '#lig', 60);
   assert.equal(await accentVar(page), '#3399ff');
-  assert.equal(await page.textContent('#customHex'), '#3399ff');
+  assert.equal(await page.inputValue('#customHex'), '#3399ff');
   assert.equal(await page.getAttribute('#customSwatch', 'aria-pressed'), 'true');
   assert.equal(await page.getAttribute('[data-accent="#d71921"]', 'aria-pressed'), 'false');
   await context.close();
@@ -448,3 +448,48 @@ for (const [w, h] of [[915, 412], [412, 915]]) {
     await context.close();
   });
 }
+
+test('a pasted hex code sets the accent and moves the sliders', async () => {
+  const { page, context } = await open();
+  await page.click('#settingsBtn');
+  await page.click('#customSwatch');
+  await page.fill('#customHex', '#12AB34');
+  assert.equal(await accentVar(page), '#12ab34');
+  assert.equal(await page.getAttribute('#customHex', 'aria-invalid'), 'false');
+  assert.equal(await page.inputValue('#hue'), '133');
+  await page.fill('#customHex', '39f');
+  assert.equal(await accentVar(page), '#3399ff');
+  await context.close();
+});
+
+test('typing a real clipboard-style insert works too', async () => {
+  const { page, context } = await open();
+  await page.click('#settingsBtn');
+  await page.click('#customSwatch');
+  await page.focus('#customHex');
+  await page.keyboard.press('Control+A');
+  await page.keyboard.insertText('#aa00ff');
+  assert.equal(await accentVar(page), '#aa00ff');
+  await context.close();
+});
+
+test('an invalid hex code leaves the colour alone and is marked, then restores on blur', async () => {
+  const { page, context } = await open({ settings: { accent: '#3399ff' } });
+  await page.click('#settingsBtn');
+  await page.fill('#customHex', 'nope');
+  assert.equal(await accentVar(page), '#3399ff');
+  assert.equal(await page.getAttribute('#customHex', 'aria-invalid'), 'true');
+  await page.locator('#customHex').blur();
+  assert.equal(await page.inputValue('#customHex'), '#3399ff');
+  assert.equal(await page.getAttribute('#customHex', 'aria-invalid'), 'false');
+  await context.close();
+});
+
+test('moving a slider updates the hex field', async () => {
+  const { page, context } = await open();
+  await page.click('#settingsBtn');
+  await page.click('#customSwatch');
+  await slide(page, '#hue', 210); await slide(page, '#sat', 100); await slide(page, '#lig', 60);
+  assert.equal(await page.inputValue('#customHex'), '#3399ff');
+  await context.close();
+});

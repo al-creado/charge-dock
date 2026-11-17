@@ -73,6 +73,15 @@
     return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) };
   }
 
+  // Turns pasted or typed text ('#3399FF', '3399ff', '#39f') into '#rrggbb', or null if it is not a hex colour.
+  function parseHexInput(text) {
+    if (typeof text !== 'string') return null;
+    const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(text.trim());
+    if (!m) return null;
+    const h = m[1].toLowerCase();
+    return '#' + (h.length === 3 ? h.split('').map(c => c + c).join('') : h);
+  }
+
   // An accent that is too dark to see on the dark tiles is lightened until it can be.
   function visibleAccent(hex, minLuminance = 0.12) {
     if (typeof hex !== 'string' || !HEX.test(hex)) return DEFAULT_ACCENT;
@@ -118,7 +127,7 @@
     };
   }
 
-  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent };
+  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.DockLogic = api;
 })(typeof window !== 'undefined' ? window : globalThis);
