@@ -124,6 +124,21 @@
       points: [[50, 108], [50, 50]] },                                              // thrown straight up
   ];
 
+  // Counts per app for the Notifications tile. Only app names and counts: never message text.
+  function summarizeNotifications(items, maxRows = 3) {
+    const cap = n => (n > 99 ? '99+' : String(n));
+    const clean = (Array.isArray(items) ? items : [])
+      .filter(i => i && typeof i.app === 'string' && i.app.trim() && Number.isFinite(i.count) && Math.floor(i.count) > 0)
+      .map(i => ({ app: i.app.trim(), count: Math.floor(i.count) }))
+      .sort((a, b) => b.count - a.count || a.app.localeCompare(b.app));
+    const total = clean.reduce((sum, i) => sum + i.count, 0);
+    return {
+      total, totalLabel: cap(total),
+      rows: clean.slice(0, maxRows).map(i => ({ ...i, label: cap(i.count) })),
+      more: Math.max(0, clean.length - maxRows),
+    };
+  }
+
   // The hidden effect: hold the battery tile for holdMs, then the ring charges up over chargeMs.
   const EGG = { holdMs: 2000, chargeMs: 2500 };
 
@@ -179,7 +194,7 @@
     return theme === 'light' ? 'light' : 'dark';
   }
 
-  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, THEMES, FLASHES, pickFlash, EGG, chargePercent };
+  const api = { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, FONTS, ACCENTS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, THEMES, FLASHES, pickFlash, EGG, chargePercent, summarizeNotifications };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.DockLogic = api;
 })(typeof window !== 'undefined' ? window : globalThis);

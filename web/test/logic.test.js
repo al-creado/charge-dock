@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, FLASHES, pickFlash, EGG, chargePercent } = require('../dock-logic.js');
+const { isNight, weekStrip, batteryText, formatTime, normalizeSettings, DEFAULT_SETTINGS, hslToHex, hexToHsl, luminance, visibleAccent, onAccent, parseHexInput, resolveTheme, formatHour, FLASHES, pickFlash, EGG, chargePercent, summarizeNotifications } = require('../dock-logic.js');
 
 const at = (y, m, d, h = 12, min = 0) => new Date(y, m - 1, d, h, min);
 
@@ -269,4 +269,30 @@ test('chargePercent counts from the real level up to 100 over the charge time', 
   assert.equal(chargePercent(-1, 1250, 2500), 50, 'an unknown level counts from 0');
   assert.equal(chargePercent(NaN, 2500, 2500), 100);
   assert.equal(chargePercent(1, 0, 2500), 100);
+});
+
+test('summarizeNotifications totals counts and lists the busiest apps first', () => {
+  assert.deepEqual(summarizeNotifications([]), { total: 0, totalLabel: '0', rows: [], more: 0 });
+  const s = summarizeNotifications([{ app: 'Mail', count: 1 }, { app: 'Messages', count: 2 }]);
+  assert.equal(s.total, 3);
+  assert.equal(s.totalLabel, '3');
+  assert.deepEqual(s.rows.map(r => [r.app, r.count]), [['Messages', 2], ['Mail', 1]]);
+  assert.equal(s.more, 0);
+});
+
+test('summarizeNotifications breaks ties by name and shows at most three apps', () => {
+  const s = summarizeNotifications([
+    { app: 'Zed', count: 1 }, { app: 'Alpha', count: 1 }, { app: 'Mail', count: 4 }, { app: 'Chat', count: 1 }, { app: 'Beta', count: 1 }]);
+  assert.deepEqual(s.rows.map(r => r.app), ['Mail', 'Alpha', 'Beta']);
+  assert.equal(s.more, 2, 'two more apps are not listed');
+  assert.equal(s.total, 8, 'but they still count in the total');
+});
+
+test('summarizeNotifications ignores bad entries and caps big numbers', () => {
+  const s = summarizeNotifications([null, undefined, 'x', {}, { app: '', count: 2 }, { app: 'X', count: 0 }, { app: 'Y', count: -3 }, { count: 3 }, { app: 'Z', count: NaN }, { app: 'W', count: '4' }, { app: 'Ok', count: 2.9 }]);
+  assert.deepEqual(s.rows.map(r => [r.app, r.count]), [['Ok', 2]]);
+  assert.equal(s.total, 2);
+  assert.equal(summarizeNotifications([{ app: 'Spam', count: 150 }]).totalLabel, '99+');
+  assert.equal(summarizeNotifications([{ app: 'Spam', count: 150 }]).rows[0].label, '99+');
+  assert.deepEqual(summarizeNotifications('nope'), { total: 0, totalLabel: '0', rows: [], more: 0 });
 });

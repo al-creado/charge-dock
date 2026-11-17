@@ -59,6 +59,7 @@
   .ampm:empty { display: none; }
   .ampm { font-family: var(--font); font-weight: 400; font-size: .2em; letter-spacing: .05em; margin-left: .25em; color: var(--muted); }
   @keyframes pulse { 50% { opacity: .25; } }
+  .temp { margin-top: .8vmin; color: var(--muted); font-size: clamp(12px, 2.4vmin, 20px); letter-spacing: .08em; text-transform: uppercase; }
   .date { margin-top: 1.6vmin; color: var(--muted); font-size: clamp(12px, 2.6vmin, 22px); font-weight: 400; letter-spacing: .12em; text-transform: uppercase; }
 
   .tiles { position: relative; min-height: 0; touch-action: pan-y; }
@@ -80,9 +81,16 @@
   .ring b { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--dot); font-weight: var(--dot-weight); font-variation-settings: "ROND" 100; font-size: calc(var(--ring) * .24); }
   .batt { display: flex; align-items: center; gap: 4cqmin; min-width: 0; }
 
+  .notif { display: flex; align-items: center; gap: calc(var(--gap) * 1.5); min-width: 0; }
+  .notif-side { flex: 1; min-width: 0; }
+  #notifRows { list-style: none; padding: 0; margin: 0; display: grid; gap: .45em; font-size: clamp(12px, min(8cqh, 4cqw), 20px); color: var(--fg); }
+  #notifRows li { display: flex; justify-content: space-between; gap: 1em; }
+  #notifRows li b { font-family: var(--dot); font-variation-settings: "ROND" 100; font-weight: var(--dot-weight); }
+  #notifRows li.more { color: var(--muted); justify-content: flex-start; }
+  #notifTile .sub { font-size: clamp(12px, min(8cqh, 4cqw), 20px); }
   .week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: calc(var(--gap) * .5); text-align: center; }
   .week div { display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: .35em; padding: 12% 0; border-radius: 14px; background: var(--surface-2); color: var(--muted); font-size: clamp(11px, 4cqw, 20px); letter-spacing: 0; }
-  .week b { font-family: var(--dot); font-variation-settings: "ROND" 100; font-weight: var(--dot-weight); font-size: clamp(18px, min(7.4cqw, 22cqh), 80px); line-height: 1; letter-spacing: 0; color: var(--fg); opacity: .45; }
+  .week b { font-family: var(--dot); font-variation-settings: "ROND" 100; font-weight: var(--dot-weight); font-size: clamp(18px, min(7.4cqw, 22cqh), 80px); line-height: 1; letter-spacing: 0; transform: translateX(.047em); color: var(--fg); opacity: .45; }
   .week .wn { display: none; }
   .week .today { color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
   .week .today b { color: var(--accent); opacity: 1; }
@@ -97,6 +105,7 @@
   .tiles .batt .big { font-size: clamp(22px, min(20cqh, 9cqw), 80px); }
   .tiles .batt .sub { font-size: clamp(11px, min(8cqh, 4cqw), 20px); }
   @container (max-aspect-ratio: 1/1) {
+    .week b { transform: none; }   /* the shift only matters for the centred day cards */
     .tiles .tile.tall > .week { grid-template-columns: 1fr; }
     .week div { flex-direction: row; padding: 0 6cqw; font-size: clamp(12px, min(3.4cqh, 6cqw), 26px); }
     .week .wl { display: none; }
@@ -104,6 +113,8 @@
     .week b { font-size: clamp(22px, min(7cqh, 18cqw), 90px); }
   }
   @container (max-aspect-ratio: 3/2) {
+    .notif { flex-direction: column; align-items: stretch; text-align: center; gap: 3cqmin; }
+    #notifRows li { justify-content: center; gap: 1.2em; }
     .batt { flex-direction: column; text-align: center; gap: 3cqmin; }
     .ring { --ring: clamp(64px, min(52cqw, 40cqh), 220px); }
     .tiles .batt .big { font-size: clamp(22px, min(11cqw, 13cqh), 80px); }
@@ -172,6 +183,7 @@
     <div class="clock tile">
       <div class="time" id="time" aria-live="off"><span id="hh">00</span><span class="colon">:</span><span id="mm">00</span><span class="ampm" id="ampm"></span></div>
       <div class="date" id="date"></div>
+      <div class="temp" id="temp">18° · Clear · sample</div>
     </div>
 
     <div class="tiles" id="tiles">
@@ -186,13 +198,15 @@
             <div><div class="big" id="battBig">Charging</div><div class="sub" id="battSub">Level unknown</div></div>
           </div>
         </div>
-        <div class="tile">
-          <div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>Weather · sample</div>
-          <div><div class="big">18°</div><div class="sub">Clear<br>H 22° · L 11°</div></div>
-        </div>
-        <div class="tile">
-          <div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Date</div>
-          <div><div class="big" id="dayNum">00</div><div class="sub"><span id="dayName">&nbsp;</span><br><span id="dayMonth">&nbsp;</span></div></div>
+        <div class="tile wide" id="notifTile" data-state="sample">
+          <div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1 1 12 0c0 5 2 6.5 2 6.5H4S6 14 6 9z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg><span id="notifLabel">Notifications · sample</span></div>
+          <div class="notif">
+            <div class="big" id="notifTotal">0</div>
+            <div class="notif-side">
+              <ul id="notifRows"></ul>
+              <div class="sub" id="notifMessage" hidden></div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -295,9 +309,6 @@
     const key = n.toDateString();
     if (key !== dayKey) {
       dayKey = key;
-      $('dayNum').textContent = pad(n.getDate());
-      $('dayName').textContent = n.toLocaleDateString(undefined, { weekday: 'long' });
-      $('dayMonth').textContent = n.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
       $('week').innerHTML = DockLogic.weekStrip(n, S.weekStart).map(d =>
         '<div class="' + d.state + '"><span class="wl">' + d.letter + '</span><span class="wn">' + d.name + '</span><b>' + pad(d.day) + '</b></div>').join('');
     }
@@ -467,6 +478,39 @@
     if (!eggRunning) renderBattery();   // a hidden effect may be showing; the newest reading appears when it ends
   };
   window.setBattery(-1, true, -1);
+
+  // ---- notifications: the Android app calls setNotifications([{app, count}, ...]) and setNotificationAccess(bool) ----
+  const SAMPLE_NOTIFICATIONS = [{ app: 'Messages', count: 2 }, { app: 'Mail', count: 2 }, { app: 'Calendar', count: 1 }];
+  let notifState = window.DockHost ? 'needs-access' : 'sample';     // in a plain browser: sample data
+  let notifItems = notifState === 'sample' ? SAMPLE_NOTIFICATIONS : [];
+  function renderNotifications() {
+    $('notifTile').dataset.state = notifState;
+    $('notifLabel').textContent = notifState === 'sample' ? 'Notifications \u00b7 sample' : 'Notifications';
+    const rowsEl = $('notifRows'), msg = $('notifMessage');
+    rowsEl.textContent = '';
+    if (notifState === 'needs-access') {
+      $('notifTotal').textContent = '\u2013';
+      msg.textContent = 'Turn on notification access in the Charge Dock app';
+      msg.hidden = false;
+      return;
+    }
+    const s = DockLogic.summarizeNotifications(notifItems);
+    $('notifTotal').textContent = s.totalLabel;
+    s.rows.forEach(r => {
+      const li = document.createElement('li'), name = document.createElement('span'), count = document.createElement('b');
+      name.textContent = r.app; count.textContent = r.label;      // textContent: app names are never treated as HTML
+      li.append(name, count); rowsEl.append(li);
+    });
+    if (s.more > 0) { const li = document.createElement('li'); li.className = 'more'; li.textContent = '+' + s.more + ' more'; rowsEl.append(li); }
+    msg.textContent = 'Nothing new';
+    msg.hidden = s.total > 0;
+  }
+  window.setNotifications = items => { notifState = 'ready'; notifItems = Array.isArray(items) ? items : []; renderNotifications(); };
+  window.setNotificationAccess = granted => {
+    if (!granted) { notifState = 'needs-access'; notifItems = []; } else if (notifState === 'needs-access') { notifState = 'ready'; }
+    renderNotifications();
+  };
+  renderNotifications();
 
   // ---- hidden: hold the battery tile for two seconds ----
   // The ring charges up to 100%, then one of the agents with a flash ability flashes the screen white, once, and everything returns.

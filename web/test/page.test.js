@@ -392,14 +392,6 @@ for (const [w, h] of [[412, 915], [360, 800], [915, 412], [800, 360]]) {
   });
 }
 
-test('date tile shows the weekday and the month', async () => {
-  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15) });
-  assert.equal(await page.textContent('#dayNum'), '17');
-  assert.equal(await page.textContent('#dayName'), 'Tuesday');
-  assert.equal(await page.textContent('#dayMonth'), 'November 2026');
-  await context.close();
-});
-
 for (const [w, h] of [[412, 915], [360, 800], [915, 412], [800, 360]]) {
   test(`clock tile is tall enough for its digits at ${w}x${h}`, async () => {
     const { page, context } = await open({ width: w, height: h, time: new Date(2026, 10, 17, 12, 15) });
@@ -948,7 +940,7 @@ for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800]]) {
       assert.ok(c.spacing.every(v => v === '0px' || v === 'normal'), `no letter-spacing (it shifts text off-centre): ${c.spacing}`);
       if (landscape) {
         assert.ok(Math.abs(c.labelCx - c.cx) <= 1, `day letter centred (off by ${(c.labelCx - c.cx).toFixed(1)}px)`);
-        assert.ok(Math.abs(c.numCx - c.cx) <= 1, `date number centred (off by ${(c.numCx - c.cx).toFixed(1)}px)`);
+        assert.ok(Math.abs(c.numCx - c.cx) <= 2.5, `date number box is within the card (off by ${(c.numCx - c.cx).toFixed(1)}px; the drawn dots are checked separately)`);
         assert.ok(c.numLeft >= 4 && c.numRight >= 4, `number keeps room at the edges (${c.numLeft.toFixed(1)} / ${c.numRight.toFixed(1)}px)`);
       } else {
         assert.ok(Math.abs(c.padLeft - c.padRight) <= 1, `row text has equal padding left and right (${c.padLeft.toFixed(1)} vs ${c.padRight.toFixed(1)})`);
@@ -957,3 +949,79 @@ for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800]]) {
     await context.close();
   });
 }
+
+// ---- right side: Battery + Notifications; temperature lives on the clock tile ----
+test('the right side has Battery and Notifications; weather and date tiles are gone', async () => {
+  const { page, context } = await open();
+  const labels = await page.evaluate(() => [...document.querySelectorAll('#page0 .tile .label')].map(l => l.textContent.trim()));
+  assert.deepEqual(labels, ['Battery', 'Notifications · sample']);
+  assert.equal(await page.evaluate(() => !!document.getElementById('dayNum') || document.body.textContent.includes('H 22')), false);
+  await context.close();
+});
+
+test('the clock tile shows the temperature, marked as sample data', async () => {
+  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15) });
+  const t = await page.evaluate(() => ({ text: document.getElementById('temp').textContent, inside: !!document.getElementById('temp').closest('.tile.clock') }));
+  assert.equal(t.inside, true);
+  assert.match(t.text, /^18° · Clear · sample$/);
+  await context.close();
+});
+
+const notif = page => page.evaluate(() => ({
+  total: document.getElementById('notifTotal').textContent,
+  rows: [...document.querySelectorAll('#notifRows li')].map(li => li.children.length ? [...li.children].map(c => c.textContent).join(' ') : li.textContent.trim()),
+  state: document.getElementById('notifTile').dataset.state,
+  message: document.getElementById('notifMessage').hidden ? '' : document.getElementById('notifMessage').textContent,
+}));
+
+test('notifications show sample counts in a plain browser', async () => {
+  const { page, context } = await open();
+  const n = await notif(page);
+  assert.equal(n.state, 'sample');
+  assert.equal(n.total, '5');
+  assert.deepEqual(n.rows, ['Mail 2', 'Messages 2', 'Calendar 1']);
+  await context.close();
+});
+
+test('setNotifications shows counts per app, never message text', async () => {
+  const { page, context } = await open({ init: hostStub });
+  await page.evaluate(() => window.setNotifications([{ app: 'Messages', count: 3 }, { app: 'Mail', count: 1 }, { app: 'Maps', count: 1 }, { app: 'Zed', count: 1 }]));
+  const n = await notif(page);
+  assert.equal(n.state, 'ready');
+  assert.equal(n.total, '6');
+  assert.deepEqual(n.rows, ['Messages 3', 'Mail 1', 'Maps 1', '+1 more']);
+  await page.evaluate(() => window.setNotifications([]));
+  assert.equal((await notif(page)).message, 'Nothing new');
+  await context.close();
+});
+
+test('inside the app, the tile asks for notification access until the app reports', async () => {
+  const { page, context } = await open({ init: hostStub });
+  const n = await notif(page);
+  assert.equal(n.state, 'needs-access');
+  assert.match(n.message, /notification access/i);
+  await page.evaluate(() => window.setNotifications([{ app: 'Mail', count: 2 }]));
+  assert.equal((await notif(page)).state, 'ready');
+  await page.evaluate(() => window.setNotificationAccess(false));
+  assert.equal((await notif(page)).state, 'needs-access');
+  await context.close();
+});
+
+// ---- what is actually drawn must be centred, not just the boxes ----
+test('the dates in the week cards are centred by their drawn dots', async () => {
+  const { page, context } = await open({ width: 915, height: 412, time: new Date(2026, 10, 17, 12, 15) });
+  await page.click('.dots [data-page="1"]');
+  await page.evaluate(() => document.fonts.ready);
+  await settled(page);
+  const offs = await page.evaluate(() => [...document.querySelectorAll('#week > div')].map(cell => {
+    const c = cell.getBoundingClientRect(), b = cell.querySelector('b'), r = b.getBoundingClientRect(), cs = getComputedStyle(b);
+    const ctx = document.createElement('canvas').getContext('2d');
+    ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const m = ctx.measureText(b.textContent);
+    const shift = new DOMMatrix(cs.transform === 'none' ? undefined : cs.transform).m41;
+    const inkCx = r.left - shift + (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2;
+    return inkCx + shift - (c.left + c.width / 2);
+  }));
+  for (const o of offs) assert.ok(Math.abs(o) <= 0.6, `ink off centre by ${o.toFixed(2)}px`);
+  await context.close();
+});
