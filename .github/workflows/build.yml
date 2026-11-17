@@ -18,6 +18,8 @@ jobs:
       - run: node --test "web/test/*.test.js"
 
   android:
+    # The Android build only runs on main (a merge, or Run workflow on main), never on other branches.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

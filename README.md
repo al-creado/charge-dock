@@ -57,5 +57,5 @@ and nothing leaves the phone. Ongoing ones (music, downloads) are not counted.
   app that hosts it in a `WebView` and runs it as a screen saver. The page is copied into the app at build time.
 - Page tests: `NODE_PATH=$(npm root -g) node --test "web/test/*.test.js"` (needs Playwright).
 - GitHub Actions runs the page tests, the Android unit tests, and builds the debug APK whenever something is merged to `main`.
-  To build another branch by hand, open the Actions tab, choose **build**, and use **Run workflow**.
+  The Android build only runs on `main`; on other branches only the page tests can be run by hand (Actions tab, **build**, **Run workflow**).
 - Design: `docs/superpowers/specs/`. Plan: `docs/superpowers/plans/`.
