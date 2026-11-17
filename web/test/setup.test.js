@@ -107,3 +107,12 @@ test('cards are evenly spaced', async () => {
   assert.ok(Math.abs(gaps[0] - gaps[1]) <= 1, `gaps differ: ${gaps}`);
   await context.close();
 });
+
+for (const [w, h] of [[412, 915], [360, 640]]) {
+  test(`the title keeps clear space above it even if the app reports no status bar inset (${w}x${h})`, async () => {
+    const { page, context } = await open({ width: w, height: h });
+    const top = await page.evaluate(() => document.getElementById('title').getBoundingClientRect().top);
+    assert.ok(top >= 40, `title starts ${top.toFixed(1)}px from the top (needs at least 40)`);
+    await context.close();
+  });
+}

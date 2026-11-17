@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.provider.Settings
+import android.view.View
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.core.app.NotificationManagerCompat
@@ -34,13 +35,14 @@ class MainActivity : Activity() {
             onPageLoaded = { pageLoaded = true; reportAccess() },
             onRenderGone = { recreate() },
         )
-        // Draw edge to edge but keep the page clear of the status and navigation bars.
-        ViewCompat.setOnApplyWindowInsetsListener(webView) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-            insets
-        }
         setContentView(webView)
+        // Android 15 draws apps edge to edge, so push the page below the status bar and camera and above the
+        // navigation bar. The padding goes on the activity's root view, which is where insets are delivered.
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById<View>(android.R.id.content)) { root, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            root.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
     }
 
     // Coming back from the system settings: show whether notification access is now on.
