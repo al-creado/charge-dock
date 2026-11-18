@@ -4,8 +4,14 @@
     <!-- Weather only: the temperature comes from open-meteo.com. Notification data never leaves the phone. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Needed to show the real app name next to each notification count. -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!-- To show the real app name next to a notification count the app looks up apps that have a launcher icon. That is
+         all it asks for: it does not request the broad "see every installed app" permission. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="false"

@@ -51,3 +51,4 @@ Tick each line pass or fail. Any fail is a bug to report.
 - [ ] After a full night of charging the phone is not hot and the dock still shows the right time.
 - [ ] Nothing flickers, and the layout drifts slightly but never looks broken.
 - [ ] While charging, the battery tile uses the phone's own wording: **Charging rapidly** on a fast charger, **Charging slowly** on a weak one (a laptop USB port), plain **Charging** in between. The line under it starts with where the power comes from (Charger, USB or Wireless). Compare with the phone's lock screen; if they disagree, tell me which one is right.
+- [ ] Notification rows still show proper app names (Mail, Messages...). An app with no launcher icon shows a tidied package name instead. After installing, Play Protect may or may not still flag the app; tell me what it says.

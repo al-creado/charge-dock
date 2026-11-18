@@ -32,6 +32,6 @@ class DockNotificationListener : NotificationListenerService() {
     private fun appLabel(pkg: String): String = try {
         packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
     } catch (e: Exception) {
-        pkg
+        NotificationCounts.fallbackName(pkg)   // an app we are not allowed to look up (no launcher icon)
     }
 }
