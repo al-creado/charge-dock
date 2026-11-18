@@ -20,7 +20,7 @@ Tick each line pass or fail. Any fail is a bug to report.
 - [ ] There is no "hold the clock" line at the bottom, and holding the clock does nothing. Tapping the clock still toggles Night mode.
 - [ ] A swipe up from the lower part of the screen leaves the dock, both from **Open dock** and from the screen saver (where the phone's own gesture bar is hidden). A sideways swipe still changes pages and does not leave.
 - [ ] Unplugging leaves the dock.
-- [ ] A long press on the clock tile leaves the dock. Holding the hex field or a slider in Settings does not.
+- [ ] Holding the hex field or a slider in Settings never leaves the dock.
 
 ## Controls
 - [ ] Tapping the clock tile toggles red night mode.

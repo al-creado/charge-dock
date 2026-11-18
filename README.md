@@ -51,7 +51,7 @@ and nothing leaves the phone. Ongoing ones (music, downloads) are not counted.
 - The gear opens **Settings**: clock font, theme (device default, dark or light; the front page follows it too), accent colour
   (including a custom colour you can paste as a hex code), 12 or 24-hour time, week start,
   and the hours and level for auto-dim.
-- A long press on the clock tile, the power button, or unplugging leaves the dock.
+- A swipe up from the lower part of the screen, the power button, or unplugging leaves the dock.
 - Settings also has a **Turn down visual effects** switch. Turn it on for a steady clock colon and no hidden full-screen effects.
 
 ## Notes
