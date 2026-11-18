@@ -18,6 +18,8 @@ Tick each line pass or fail. Any fail is a bug to report.
 - [ ] The screen saver follows how the phone is held: it comes up in landscape when the phone is sideways and in portrait when it is upright, even with rotation locked. Turn the phone while it shows and the dock turns too.
 - [ ] With the phone locked, then plugged in, the dock appears over the lock screen after the screen times out.
 - [ ] There is no "hold the clock" line at the bottom, and holding the clock does nothing. Tapping the clock still toggles Night mode.
+- [ ] The back button (or back gesture) leaves the dock, from **Open dock** and from the screen saver.
+- [ ] One swipe up leaves the dock. From **Open dock** the first swipe from the very bottom edge is enough (it used to only show the navigation bar). In the screen saver, a swipe starting in the lower half of the screen works.
 - [ ] A swipe up from the lower part of the screen leaves the dock, both from **Open dock** and from the screen saver (where the phone's own gesture bar is hidden). A sideways swipe still changes pages and does not leave.
 - [ ] Unplugging leaves the dock.
 - [ ] Holding the hex field or a slider in Settings never leaves the dock.

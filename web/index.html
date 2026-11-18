@@ -478,11 +478,11 @@
   // Swipe up from the lower part of the screen to leave, the way you close an app. In the screen saver the phone's own
   // gesture bar is hidden, so the dock handles this itself. Touch events keep arriving while the page is being panned.
   let swipe = null;
-  const swipeStart = (x, y) => { swipe = (window.DockHost && typeof window.DockHost.exit === 'function' && settings.hidden && y >= innerHeight * 0.65) ? { x, y } : null; };
+  const swipeStart = (x, y) => { swipe = (window.DockHost && typeof window.DockHost.exit === 'function' && settings.hidden && y >= innerHeight * 0.5) ? { x, y } : null; };
   const swipeMove = (x, y) => {
     if (!swipe) return;
     const up = swipe.y - y, across = Math.abs(x - swipe.x);
-    if (up > 90 && up > across * 2) { swipe = null; window.DockHost.exit(); }
+    if (up > 60 && up > across * 1.5) { swipe = null; window.DockHost.exit(); }
   };
   document.addEventListener('touchstart', e => { if (e.touches.length === 1) swipeStart(e.touches[0].clientX, e.touches[0].clientY); else swipe = null; }, { passive: true });
   document.addEventListener('touchmove', e => { if (e.touches.length === 1) swipeMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });

@@ -1496,9 +1496,9 @@ for (const [w, h] of [[915, 412], [412, 915]]) {
     const f = await finger(page, context);
     const x = Math.round(w / 2);
     await f.down(x, h - 10);
-    await f.move(x, h - 60);
+    await f.move(x, h - 40);
     assert.equal(await exits(page), 0, 'a short drag is not enough');
-    await f.move(x + 8, h - 140);
+    await f.move(x + 8, h - 100);
     await f.up();
     assert.equal(await exits(page), 1, 'a long upward swipe leaves');
     await context.close();

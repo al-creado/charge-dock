@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import android.os.Bundle
 import android.view.WindowManager
 import android.webkit.WebView
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -31,6 +32,14 @@ class DockActivity : Activity() {
         alarm = AlarmFeed(this, webView)
         setContentView(webView)
         hideSystemBars()
+        // A swipe up from the bottom edge only brings the hidden navigation bar back (the phone then wants a second swipe
+        // to go home). Treat that first swipe as "close": the bar showing again after being hidden means leave the dock.
+        var navigationBarWasHidden = false
+        ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { view, insets ->
+            if (!insets.isVisible(WindowInsetsCompat.Type.navigationBars())) navigationBarWasHidden = true
+            else if (navigationBarWasHidden) finish()
+            ViewCompat.onApplyWindowInsets(view, insets)
+        }
     }
 
     override fun onStart() {

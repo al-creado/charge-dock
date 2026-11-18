@@ -3,9 +3,13 @@ package app.chargedock
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.content.Context
+import android.os.Build
 import android.service.dreams.DreamService
+import android.view.KeyEvent
 import android.view.OrientationEventListener
 import android.view.WindowManager
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import android.webkit.WebView
 
 /** The screen saver: Android starts this while the phone is charging and the screen would go idle. */
@@ -49,6 +53,21 @@ class DockDreamService : DreamService() {
             }
         }
         setContentView(holder)
+        // The back button and the back gesture leave the dock. A screen saver does not do this by itself.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            window?.onBackInvokedDispatcher?.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, backCallback)
+        }
+    }
+
+    // Used from Android 13 on, where back arrives as a callback instead of a key press.
+    private val backCallback = OnBackInvokedCallback { finish() }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+            if (event.action == KeyEvent.ACTION_UP) finish()
+            return true
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     private fun turnToMatchPhone() {
@@ -80,6 +99,7 @@ class DockDreamService : DreamService() {
     }
 
     override fun onDetachedFromWindow() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) window?.onBackInvokedDispatcher?.unregisterOnBackInvokedCallback(backCallback)
         webView?.destroy()
         webView = null
         layout = null
