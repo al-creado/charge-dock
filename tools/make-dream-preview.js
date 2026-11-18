@@ -20,7 +20,7 @@ const { chromium } = require('playwright');
     document.getElementById('notifLabel').textContent = 'Notifications';
   });
   await page.evaluate(() => Promise.all(document.getAnimations().filter(a => a.effect.getTiming().iterations !== Infinity).map(a => a.finished)));
-  await page.addStyleTag({ content: '.bottom { display: none; }' });          // no buttons in the picture
+  await page.addStyleTag({ content: '.bottom { display: none; } :root { --top-inset: var(--gap); }' });          // no buttons in the picture
   await page.waitForTimeout(300);
   await page.screenshot({ path: path.resolve(__dirname, '..', 'app', 'src', 'main', 'res', 'drawable-nodpi', 'dream_preview.png') });
   await browser.close();

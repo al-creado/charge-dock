@@ -813,7 +813,7 @@ const spacing = async page => { await settled(page); return page.evaluate(() => 
   const clock = r(q('.tile.clock')), tiles = [...document.querySelectorAll('.tiles .page:not([hidden]) .tile')].map(r);
   const bottom = r(q('.bottom')), W = innerWidth, H = innerHeight;
   const rightmost = Math.max(...tiles.map(t => t.right)), lowest = Math.max(clock.bottom, ...tiles.map(t => t.bottom));
-  const out = { left: clock.left, right: W - rightmost, top: Math.min(clock.top, ...tiles.map(t => t.top)), bottomBar: H - bottom.bottom, aboveBar: bottom.top - lowest };
+  const out = { left: clock.left, right: W - rightmost, top: Math.min(clock.top, ...tiles.map(t => t.top)), bottomBar: H - bottom.bottom, aboveBar: bottom.top - lowest, tilesBottom: H - lowest };
   const landscape = clock.right < tiles[0].left;
   if (landscape) out.clockToTiles = tiles[0].left - clock.right; else out.clockToTiles = tiles[0].top - clock.bottom;
   if (tiles.length > 1) { if (landscape) out.tileRow = tiles[1].top - tiles[0].bottom; else out.tileColumn = tiles[1].left - tiles[0].right; }
@@ -826,7 +826,9 @@ for (const [w, h] of [[915, 412], [412, 915], [800, 360], [360, 800]]) {
     await page.evaluate(() => document.fonts.ready);
     const sp = await spacing(page);
     const portrait = w < h;
-    if (portrait) { assert.ok(sp.top >= 28, `portrait leaves room at the top (${sp.top.toFixed(1)}px)`); delete sp.top; }
+    assert.ok(sp.top >= 28, `room at the top (${sp.top.toFixed(1)}px)`);
+    assert.ok(Math.abs(sp.top - sp.tilesBottom) <= 1, `the tiles sit in the middle: ${sp.top.toFixed(1)}px above, ${sp.tilesBottom.toFixed(1)}px below`);
+    delete sp.top; delete sp.tilesBottom;
     const values = Object.values(sp);
     const spread = Math.max(...values) - Math.min(...values);
     assert.ok(spread <= 1, `spacing differs by ${spread.toFixed(1)}px: ${JSON.stringify(Object.fromEntries(Object.entries(sp).map(([k, v]) => [k, +v.toFixed(1)])))}`);
@@ -834,7 +836,8 @@ for (const [w, h] of [[915, 412], [412, 915], [800, 360], [360, 800]]) {
     for (const n of [1, 2]) {
       await page.click(`.dots [data-page="${n}"]`);
       const sp2 = await spacing(page);
-      if (portrait) delete sp2.top;
+      assert.ok(Math.abs(sp2.top - sp2.tilesBottom) <= 1, `page ${n + 1}: the tiles sit in the middle`);
+      delete sp2.top; delete sp2.tilesBottom;
       const v2 = Object.values(sp2);
       assert.ok(Math.max(...v2) - Math.min(...v2) <= 1, `page ${n + 1} spacing differs: ${JSON.stringify(sp2)}`);
     }

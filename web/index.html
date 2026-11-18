@@ -22,7 +22,9 @@
     --time-scale: 1;
     --h12-scale: 1;
     --dim-opacity: .3;
-    --top-inset: max(var(--gap), env(safe-area-inset-top, 0px));
+    --bar-h: 30px;   /* height of the bottom row (page dots and buttons) */
+    /* The tiles sit in the middle of the screen: the room above them equals the room below (gap, bottom row, gap). */
+    --top-inset: max(calc(var(--gap) * 2 + var(--bar-h)), env(safe-area-inset-top, 0px));
     --gap: clamp(12px, 3vmin, 20px);   /* the one spacing value: screen margins and the space between tiles */
     --inset-l: env(safe-area-inset-left, 0px);    /* the camera cutout or rounded corner, on whichever side it is */
     --inset-r: env(safe-area-inset-right, 0px);
@@ -33,7 +35,6 @@
   :root[data-font="sans"] { --dot: system-ui, -apple-system, "Helvetica Neue", Roboto, sans-serif; --dot-weight: 200; --time-scale: .95; }
   :root[data-hour12="true"] { --h12-scale: .85; }
   :root[data-theme="light"] { --bg: #f2f2f4; --surface: #ffffff; --surface-2: #e8e8ec; --line: #d4d4da; --fg: #101012; --muted: #6c6b73; color-scheme: light; }
-  @media (max-aspect-ratio: 1/1) { :root { --top-inset: max(calc(var(--gap) * 2.4), env(safe-area-inset-top, 0px)); } }   /* tall screens: room under the status bar and camera */
   [hidden] { display: none !important; }
   * { box-sizing: border-box; margin: 0; }
   html, body { height: 100%; }
@@ -140,7 +141,7 @@
     .tiles .batt .sub { font-size: clamp(10px, min(5.5cqw, 6.5cqh), 24px); }
   }
 
-  .bottom { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; color: var(--muted); font-size: clamp(11px, 2vmin, 14px); letter-spacing: .05em; }
+  .bottom { height: var(--bar-h); display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; color: var(--muted); font-size: clamp(11px, 2vmin, 14px); letter-spacing: .05em; }
   .dots { display: flex; gap: 10px; grid-column: 2; }
   .dots button { width: 9px; height: 9px; border-radius: 50%; background: var(--line); padding: 0; }
   .dots button[aria-current="true"] { background: var(--fg); }
