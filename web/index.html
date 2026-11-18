@@ -24,6 +24,9 @@
     --dim-opacity: .3;
     --top-inset: max(var(--gap), env(safe-area-inset-top, 0px));
     --gap: clamp(12px, 3vmin, 20px);   /* the one spacing value: screen margins and the space between tiles */
+    --inset-l: env(safe-area-inset-left, 0px);    /* the camera cutout or rounded corner, on whichever side it is */
+    --inset-r: env(safe-area-inset-right, 0px);
+    --side: max(var(--gap), var(--inset-l), var(--inset-r));   /* the same on both sides, so the dock sits centred on screen */
     color-scheme: dark;
   }
   :root[data-font="mono"] { --dot: "Space Mono", ui-monospace, "SF Mono", Menlo, monospace; --dot-weight: 400; --time-scale: .84; }
@@ -38,8 +41,8 @@
   body {
     background: var(--bg); color: var(--fg); font-family: var(--font);
     padding-block: 0;
-    padding-left: max(var(--gap), env(safe-area-inset-left, 0px));
-    padding-right: max(var(--gap), env(safe-area-inset-right, 0px));
+    padding-left: var(--side);
+    padding-right: var(--side);
     overflow: hidden; -webkit-user-select: none; user-select: none;
   }
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
@@ -48,7 +51,7 @@
   .dock { height: 100%; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: var(--gap); padding-block: var(--top-inset) var(--gap); transition: opacity .6s, transform 2s; }
   .dock.dim { opacity: var(--dim-opacity); }
 
-  .stage { display: grid; grid-template-columns: 3fr 2fr; gap: var(--gap); min-height: 0; }   /* the clock takes 60%, the tiles 40% */
+  .stage { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--gap); min-height: 0; }   /* the clock takes 60%, the tiles 40% */
   @media (max-aspect-ratio: 1/1) { .stage { grid-template-columns: 1fr; grid-template-rows: minmax(0, 3fr) minmax(0, 2fr); } }
 
   #battTile { touch-action: none; -webkit-touch-callout: none; }
@@ -148,7 +151,7 @@
   .pill.icon svg { width: 1.5em; height: 1.5em; }
 
   /* ---- settings ---- */
-  .settings { position: fixed; inset: 0; z-index: 20; background: var(--bg); overflow-y: auto; padding-inline: max(var(--gap), env(safe-area-inset-left, 0px)) max(var(--gap), env(safe-area-inset-right, 0px)); -webkit-user-select: none; user-select: none; }
+  .settings { position: fixed; inset: 0; z-index: 20; background: var(--bg); overflow-y: auto; padding-inline: var(--side); -webkit-user-select: none; user-select: none; }
   .sheet { max-width: 760px; margin-inline: auto; padding-bottom: 24px; }
   .sheet header { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; padding-block: 14px 10px; background: var(--bg); z-index: 1; }
   .sheet h2 { font-family: var(--font); font-weight: 400; font-size: clamp(14px, 3vmin, 20px); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }

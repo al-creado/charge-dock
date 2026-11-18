@@ -1528,3 +1528,26 @@ test('swiping up does nothing in a plain browser, and not while Settings is open
   assert.equal(await exits(o.page), 0, 'Settings is open');
   await o.context.close();
 });
+
+// ---- the dock sits centred even when the phone's camera cutout takes room on one side ----
+for (const [w, h] of [[915, 412], [800, 360]]) {
+  test(`a camera cutout on one side gives equal margins on both sides at ${w}x${h}`, async () => {
+    const { page, context } = await open({ width: w, height: h, time: DAY });
+    await page.evaluate(() => document.documentElement.style.setProperty('--inset-l', '90px'));   // what env(safe-area-inset-left) is on a phone with the cutout on the left
+    await page.evaluate(() => document.fonts.ready);
+    await settled(page);
+    const m = await page.evaluate(() => {
+      const c = document.querySelector('.tile.clock').getBoundingClientRect(), t = [...document.querySelectorAll('.tiles .page:not([hidden]) .tile')].map(e => e.getBoundingClientRect());
+      return { left: c.left, right: innerWidth - Math.max(...t.map(r => r.right)), pillsRight: innerWidth - document.querySelector('.pills').getBoundingClientRect().right };
+    });
+    assert.ok(Math.abs(m.left - m.right) <= 1, `left margin ${m.left.toFixed(1)}px, right margin ${m.right.toFixed(1)}px`);
+    assert.ok(Math.abs(m.pillsRight - m.right) <= 1, 'the bottom buttons line up with the tiles');
+    assert.ok(m.left >= 90, 'and it still clears the cutout');
+    const fit = await page.evaluate(() => { const c = document.querySelector('.tile.clock').getBoundingClientRect(), t = document.querySelector('.time').getBoundingClientRect(); return { inside: t.left >= c.left && t.right <= c.right }; });
+    assert.equal(fit.inside, true, 'the clock digits stay inside their tile');
+    await page.evaluate(() => { document.documentElement.style.setProperty('--inset-l', '0px'); document.documentElement.style.setProperty('--inset-r', '90px'); });
+    const r = await page.evaluate(() => ({ left: document.querySelector('.tile.clock').getBoundingClientRect().left }));
+    assert.ok(r.left >= 90, 'a cutout on the right moves the left margin as well');
+    await context.close();
+  });
+}
