@@ -32,7 +32,11 @@
   // level: 0..1, or -1 / NaN when unknown. secsToFull: seconds, or -1 when unknown.
   // pluggedIn: true when a charger is connected, even if the battery is not taking charge (a phone holding at its
   // charge limit). It defaults to `charging`, so the older three-argument call behaves as before.
-  function batteryText(level, charging, secsToFull, pluggedIn = charging) {
+  // The phone decides whether it is charging rapidly or slowly (the app passes 'fast', 'slow', 'normal' or ''), and the
+  // dock uses the same words as the phone's own lock screen.
+  const SOURCES = { ac: 'Charger', usb: 'USB', wireless: 'Wireless', dock: 'Dock' };
+
+  function batteryText(level, charging, secsToFull, pluggedIn = charging, source = '', speed = '') {
     const known = Number.isFinite(level) && level >= 0;
     const pct = known ? Math.round(Math.min(level, 1) * 100) + '%' : '--%';
     if (!charging && pluggedIn) {
@@ -40,12 +44,14 @@
       return { pct, big: 'Paused', sub: known ? 'Holding at ' + pct : 'Charging is paused' };
     }
     if (!charging) return { pct, big: 'Not charging', sub: 'Plug in to charge' };
-    if (!known) return { pct, big: 'Charging', sub: 'Level unknown' };
+    const big = speed === 'fast' ? 'Charging rapidly' : speed === 'slow' ? 'Charging slowly' : 'Charging';
+    const via = SOURCES[source] ? SOURCES[source] + ' \u00b7 ' : '';   // e.g. "USB · "
+    if (!known) return { pct, big, sub: via + 'Level unknown' };
     if (level >= 1) return { pct, big: 'Full', sub: 'Fully charged' };
     if (Number.isFinite(secsToFull) && secsToFull > 0) {
-      return { pct, big: 'Charging', sub: 'Full in about ' + Math.round(secsToFull / 60) + ' min' };
+      return { pct, big, sub: via + 'Full in about ' + Math.round(secsToFull / 60) + ' min' };
     }
-    return { pct, big: 'Charging', sub: 'Time to full unknown' };
+    return { pct, big, sub: via + 'Time to full unknown' };
   }
 
   // ---- colour helpers (hex strings are '#rrggbb') ----

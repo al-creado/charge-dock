@@ -414,3 +414,21 @@ test('batteryDetailsText: copes with missing readings', () => {
   assert.deepEqual(batteryDetailsText(NaN, NaN, NaN, 'C'), { big: '\u2013', sub: 'Not available' });
   assert.deepEqual(batteryDetailsText(undefined, undefined, undefined, 'C'), { big: '\u2013', sub: 'Not available' });
 });
+
+test('batteryText uses the phone\'s own words for the speed, and names the charger', () => {
+  assert.deepEqual(batteryText(0.5, true, 1800, true, 'ac', 'fast'), { pct: '50%', big: 'Charging rapidly', sub: 'Charger \u00b7 Full in about 30 min' });
+  assert.deepEqual(batteryText(0.5, true, 1800, true, 'usb', 'slow'), { pct: '50%', big: 'Charging slowly', sub: 'USB \u00b7 Full in about 30 min' });
+  assert.deepEqual(batteryText(0.5, true, -1, true, 'wireless', 'normal'), { pct: '50%', big: 'Charging', sub: 'Wireless \u00b7 Time to full unknown' });
+  assert.deepEqual(batteryText(0.5, true, 1800, true, 'dock', ''), { pct: '50%', big: 'Charging', sub: 'Dock \u00b7 Full in about 30 min' });
+});
+
+test('batteryText: without a charger or speed it reads exactly as before', () => {
+  assert.deepEqual(batteryText(0.5, true, 1800, true), { pct: '50%', big: 'Charging', sub: 'Full in about 30 min' });
+  assert.deepEqual(batteryText(0.5, true, 1800, true, 'unknown-thing', ''), { pct: '50%', big: 'Charging', sub: 'Full in about 30 min' });
+});
+
+test('batteryText: speed and charger are ignored when not charging', () => {
+  assert.deepEqual(batteryText(0.8, false, -1, true, 'usb', 'slow'), { pct: '80%', big: 'Paused', sub: 'Holding at 80%' });
+  assert.deepEqual(batteryText(1, true, -1, true, 'ac', 'fast'), { pct: '100%', big: 'Full', sub: 'Fully charged' });
+  assert.deepEqual(batteryText(0.8, false, -1, false, 'usb', 'slow'), { pct: '80%', big: 'Not charging', sub: 'Plug in to charge' });
+});

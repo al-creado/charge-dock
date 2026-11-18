@@ -507,19 +507,20 @@
     else if (settings.hidden && e.key === 'ArrowLeft') setPage(page - 1);
   });
 
-  // ---- battery: the Android app calls window.setBattery(level 0..1 or -1, charging, secondsToFull or -1) ----
-  let lastBattery = [-1, true, -1], eggRunning = false, lastFlashAgent = null;
+  // ---- battery: the Android app calls window.setBattery(level 0..1 or -1, charging, secondsToFull or -1, pluggedIn, source, speed) ----
+  let lastBattery = [-1, true, -1, true, '', ''], eggRunning = false, lastFlashAgent = null;
   function renderBattery() {
-    const [level, charging, secsToFull, pluggedIn] = lastBattery;
-    const t = DockLogic.batteryText(level, charging, secsToFull, pluggedIn);
+    const [level, charging, secsToFull, pluggedIn, source, speed] = lastBattery;
+    const t = DockLogic.batteryText(level, charging, secsToFull, pluggedIn, source, speed);
     const known = Number.isFinite(level) && level >= 0;
     $('pct').textContent = t.pct;
     $('battBig').textContent = t.big;
     $('battSub').textContent = t.sub;
     $('ringFill').style.strokeDashoffset = String(known ? 251.3 * (1 - Math.min(level, 1)) : 251.3);
   }
-  window.setBattery = (level, charging, secsToFull, pluggedIn = charging) => {
-    lastBattery = [level, charging, secsToFull, pluggedIn];
+  // source is 'ac', 'usb', 'wireless', 'dock' or ''; speed is 'fast', 'normal', 'slow' or '' (the phone doesn't say)
+  window.setBattery = (level, charging, secsToFull, pluggedIn = charging, source = '', speed = '') => {
+    lastBattery = [level, charging, secsToFull, pluggedIn, source, speed];
     if (!eggRunning) renderBattery();   // a hidden effect may be showing; the newest reading appears when it ends
   };
   window.setBattery(-1, true, -1);

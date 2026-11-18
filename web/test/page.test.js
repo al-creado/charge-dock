@@ -1500,3 +1500,32 @@ for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800]]) {
     await context.close();
   });
 }
+
+// ---- charging speed and charger ----
+test('the battery tile says Charging rapidly or slowly and where the power comes from', async () => {
+  const { page, context } = await open({ time: DAY });
+  const text = () => page.evaluate(() => [document.getElementById('battBig').textContent, document.getElementById('battSub').textContent]);
+  await page.evaluate(() => window.setBattery(0.5, true, 1800, true, 'ac', 'fast'));
+  assert.deepEqual(await text(), ['Charging rapidly', 'Charger \u00b7 Full in about 30 min']);
+  await page.evaluate(() => window.setBattery(0.5, true, 7200, true, 'usb', 'slow'));
+  assert.deepEqual(await text(), ['Charging slowly', 'USB \u00b7 Full in about 120 min']);
+  await page.evaluate(() => window.setBattery(0.5, true, 1800, true));
+  assert.deepEqual(await text(), ['Charging', 'Full in about 30 min'], 'the old four-argument call still works');
+  await context.close();
+});
+
+test('Charging rapidly and the charger line fit the battery tile at every size', async () => {
+  for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800]]) {
+    const { page, context } = await open({ width: w, height: h, time: DAY });
+    await page.evaluate(() => window.setBattery(0.82, true, 2280, true, 'wireless', 'fast'));
+    await page.evaluate(() => document.fonts.ready);
+    const r = await page.evaluate(() => {
+      const t = document.getElementById('battTile'), c = t.getBoundingClientRect();
+      const inside = ['battBig', 'battSub'].every(id => { const b = document.getElementById(id).getBoundingClientRect(); return b.left >= c.left && b.right <= c.right && b.bottom <= c.bottom; });
+      return { clipped: t.scrollWidth > t.clientWidth + 1 || t.scrollHeight > t.clientHeight + 1, inside };
+    });
+    assert.equal(r.clipped, false, `not clipped at ${w}x${h}`);
+    assert.equal(r.inside, true, `text inside its tile at ${w}x${h}`);
+    await context.close();
+  }
+});

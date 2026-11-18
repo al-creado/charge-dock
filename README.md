@@ -38,7 +38,7 @@ and nothing leaves the phone. Ongoing ones (music, downloads) are not counted.
 
 ## The tiles
 
-- **Battery**: charge level, and whether it is charging, **Paused** (plugged in but holding at your charge limit) or full.
+- **Battery**: charge level, and whether it is charging (Charging, Charging rapidly or Charging slowly, the phone's own wording, plus whether the power comes from a charger, USB or wireless), **Paused** (plugged in but holding at your charge limit) or full.
 - **Next alarm**: the time of your phone's next alarm and how long until it rings. It reads the alarm clock directly,
   so it needs no permission.
 - **Notifications**: counts per app (see above).

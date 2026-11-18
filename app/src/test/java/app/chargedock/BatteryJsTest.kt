@@ -7,33 +7,33 @@ import java.util.Locale
 class BatteryJsTest {
     @Test
     fun scriptForNormalReading() {
-        assertEquals("window.setBattery(0.82,true,2280,true)", BatteryJs.script(82, 100, true, 2_280_000L, true))
+        assertEquals("window.setBattery(0.82,true,2280,true,\"\",\"\")", BatteryJs.script(82, 100, true, 2_280_000L, true))
     }
 
     @Test
     fun fullBatteryIsOne() {
-        assertEquals("window.setBattery(1.00,true,-1,true)", BatteryJs.script(100, 100, true, -1L, true))
+        assertEquals("window.setBattery(1.00,true,-1,true,\"\",\"\")", BatteryJs.script(100, 100, true, -1L, true))
     }
 
     @Test
     fun pluggedInButNotChargingIsReportedAsPaused() {
         // A phone holding at its charge limit: plugged in, not charging.
-        assertEquals("window.setBattery(0.80,false,-1,true)", BatteryJs.script(80, 100, false, -1L, true))
+        assertEquals("window.setBattery(0.80,false,-1,true,\"\",\"\")", BatteryJs.script(80, 100, false, -1L, true))
     }
 
     @Test
     fun unpluggedIsNotPaused() {
-        assertEquals("window.setBattery(0.80,false,-1,false)", BatteryJs.script(80, 100, false, -1L, false))
+        assertEquals("window.setBattery(0.80,false,-1,false,\"\",\"\")", BatteryJs.script(80, 100, false, -1L, false))
     }
 
     @Test
     fun unknownLevel() {
-        assertEquals("window.setBattery(-1,true,-1,true)", BatteryJs.script(-1, 100, true, -1L, true))
+        assertEquals("window.setBattery(-1,true,-1,true,\"\",\"\")", BatteryJs.script(-1, 100, true, -1L, true))
     }
 
     @Test
     fun zeroScale() {
-        assertEquals("window.setBattery(-1,false,-1,false)", BatteryJs.script(50, 0, false, -1L, false))
+        assertEquals("window.setBattery(-1,false,-1,false,\"\",\"\")", BatteryJs.script(50, 0, false, -1L, false))
     }
 
     @Test
@@ -41,7 +41,7 @@ class BatteryJsTest {
         val saved = Locale.getDefault()
         try {
             Locale.setDefault(Locale.GERMANY)
-            assertEquals("window.setBattery(0.82,true,2280,true)", BatteryJs.script(82, 100, true, 2_280_000L, true))
+            assertEquals("window.setBattery(0.82,true,2280,true,\"\",\"\")", BatteryJs.script(82, 100, true, 2_280_000L, true))
         } finally {
             Locale.setDefault(saved)
         }
@@ -68,5 +68,39 @@ class BatteryJsTest {
         } finally {
             Locale.setDefault(saved)
         }
+    }
+
+    @Test
+    fun scriptCarriesTheChargerAndPower() {
+        assertEquals("window.setBattery(0.82,true,2280,true,\"usb\",\"fast\")", BatteryJs.script(82, 100, true, 2_280_000L, true, "usb", "fast"))
+    }
+
+    @Test
+    fun sourceNames() {
+        assertEquals("ac", BatteryJs.sourceName(1))
+        assertEquals("usb", BatteryJs.sourceName(2))
+        assertEquals("wireless", BatteryJs.sourceName(4))
+        assertEquals("dock", BatteryJs.sourceName(8))
+        assertEquals("", BatteryJs.sourceName(0))
+    }
+
+    @Test
+    fun speedFollowsTheChargersRatedPowerAgainstTheSystemThresholds() {
+        // thresholds: slow below 4 W, fast above 10 W
+        assertEquals("slow", BatteryJs.speedName(500_000, 5_000_000, 4_000_000L, 10_000_000L))      // 2.5 W
+        assertEquals("normal", BatteryJs.speedName(1_500_000, 5_000_000, 4_000_000L, 10_000_000L))  // 7.5 W
+        assertEquals("fast", BatteryJs.speedName(3_000_000, 9_000_000, 4_000_000L, 10_000_000L))    // 27 W
+    }
+
+    @Test
+    fun speedUsesFiveVoltsWhenTheChargerSaysNothingAboutVoltage() {
+        assertEquals("fast", BatteryJs.speedName(3_000_000, -1, 4_000_000L, 10_000_000L))           // 15 W
+        assertEquals("slow", BatteryJs.speedName(500_000, 0, 4_000_000L, 10_000_000L))              // 2.5 W
+    }
+
+    @Test
+    fun speedIsUnknownWithoutARatedCurrent() {
+        assertEquals("", BatteryJs.speedName(-1, 5_000_000, 4_000_000L, 10_000_000L))
+        assertEquals("", BatteryJs.speedName(0, 9_000_000, 4_000_000L, 10_000_000L))
     }
 }
