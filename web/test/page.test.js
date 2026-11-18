@@ -943,7 +943,7 @@ for (const [w, h] of [[412, 915], [360, 800], [915, 412]]) {
 }
 
 // ---- the week cards: text must sit exactly in the middle ----
-for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800]]) {
+for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800], [700, 1000]]) {
   test(`this week text is centred in its cards at ${w}x${h}`, async () => {
     const { page, context } = await open({ width: w, height: h, time: new Date(2026, 10, 17, 12, 15) });
     await page.click('.dots [data-page="2"]');
@@ -960,7 +960,8 @@ for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800]]) {
         spacing: [getComputedStyle(label).letterSpacing, getComputedStyle(num).letterSpacing],
       };
     }));
-    const landscape = w < h;   // the week is a row of centred day cards in the wide strip under the clock (portrait), a list of rows in the narrow column beside it (landscape)
+    const cards = await page.evaluate(() => getComputedStyle(document.querySelector('#week > div')).flexDirection === 'column');   // wide tile: centred day cards; squarish or tall tile: a list of rows
+    const landscape = cards;
     for (const c of cells) {
       assert.ok(c.spacing.every(v => v === '0px' || v === 'normal'), `no letter-spacing (it shifts text off-centre): ${c.spacing}`);
       if (landscape) {
@@ -1027,7 +1028,7 @@ test('inside the app, the tile asks for notification access until the app report
 
 // ---- what is actually drawn must be centred, not just the boxes ----
 test('the dates in the week cards are centred by their drawn dots', async () => {
-  const { page, context } = await open({ width: 412, height: 915, time: new Date(2026, 10, 17, 12, 15) });
+  const { page, context } = await open({ width: 700, height: 1000, time: new Date(2026, 10, 17, 12, 15) });
   await page.click('.dots [data-page="2"]');
   await page.evaluate(() => document.fonts.ready);
   await settled(page);
@@ -1268,7 +1269,7 @@ const alarmText = page => page.evaluate(() => ({
 }));
 const localMs = (y, m, d, h, min) => new Date(y, m - 1, d, h, min).getTime();
 
-test('the clock takes 75% and the tiles 25%: stacked beside it in landscape, side by side below it in portrait', async () => {
+test('the clock takes 60% and the tiles 40%: stacked beside it in landscape, side by side below it in portrait', async () => {
   for (const [w, h] of [[915, 412], [412, 915]]) {
     const { page, context } = await open({ width: w, height: h, time: DAY });
     for (const n of [0, 1]) {
@@ -1281,12 +1282,12 @@ test('the clock takes 75% and the tiles 25%: stacked beside it in landscape, sid
       assert.equal(g.tiles.length, 2);
       if (w > h) {
         const total = g.cw + g.tiles[0].w;
-        assert.ok(Math.abs(g.cw / total - 0.75) < 0.01, `clock is ${(g.cw / total * 100).toFixed(1)}% of the width`);
+        assert.ok(Math.abs(g.cw / total - 0.6) < 0.01, `clock is ${(g.cw / total * 100).toFixed(1)}% of the width`);
         assert.ok(Math.abs(g.tiles[0].l - g.tiles[1].l) <= 1 && g.tiles[1].t > g.tiles[0].t, 'tiles are stacked');
         assert.ok(Math.abs(g.tiles[0].h - g.tiles[1].h) <= 1, 'equal heights');
       } else {
         const total = g.ch + g.tiles[0].h;
-        assert.ok(Math.abs(g.ch / total - 0.75) < 0.01, `clock is ${(g.ch / total * 100).toFixed(1)}% of the height`);
+        assert.ok(Math.abs(g.ch / total - 0.6) < 0.01, `clock is ${(g.ch / total * 100).toFixed(1)}% of the height`);
         assert.ok(Math.abs(g.tiles[0].t - g.tiles[1].t) <= 1 && g.tiles[1].l > g.tiles[0].l, 'tiles are side by side');
         assert.ok(Math.abs(g.tiles[0].w - g.tiles[1].w) <= 1, 'equal widths');
       }
