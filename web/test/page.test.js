@@ -593,15 +593,7 @@ const holdOn = async (page, selector, ms = 900) => {
   await page.mouse.up();
 };
 
-test('a long press on the clock tile asks the app to leave, and does not toggle night mode', async () => {
-  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: hostStub });
-  await holdOn(page, '.tile.clock');
-  assert.equal(await exits(page), 1);
-  assert.equal(await page.evaluate(() => document.body.classList.contains('red')), false);
-  await context.close();
-});
-
-test('a short tap on the clock tile toggles night mode and does not leave', async () => {
+test('a tap on the clock tile toggles night mode and does not leave', async () => {
   const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: hostStub });
   await holdOn(page, '.tile.clock', 100);
   assert.equal(await exits(page), 0);
@@ -617,13 +609,6 @@ test('holding a control in settings never leaves the dock', async () => {
   await holdOn(page, '#hue');
   await holdOn(page, '#startPlus');
   assert.equal(await exits(page), 0);
-  await context.close();
-});
-
-test('a long press does nothing and raises no error when there is no app around', async () => {
-  const { page, context, problems } = await open({ time: new Date(2026, 10, 17, 12, 15) });
-  await holdOn(page, '.tile.clock');
-  assert.deepEqual(problems, []);
   await context.close();
 });
 
@@ -917,30 +902,14 @@ test('tapping never shows the browser tap-highlight overlay (the blue layer on A
   await context.close();
 });
 
-test('the exit hint shows inside the app and stays hidden in a plain browser', async () => {
-  let o = await open({ init: hostStub });
-  assert.equal(await o.page.isVisible('#exitHint'), true);
-  assert.match(await o.page.textContent('#exitHint'), /Hold the clock to exit/);
-  await o.context.close();
-  o = await open();
-  assert.equal(await o.page.isVisible('#exitHint'), false);
-  await o.context.close();
+test('there is no exit hint line and holding the clock does not leave', async () => {
+  const { page, context } = await open({ time: DAY, init: hostStub });
+  assert.equal(await page.locator('#exitHint').count(), 0, 'no hint');
+  assert.equal(await page.locator('.hint').count(), 0);
+  await holdOn(page, '.tile.clock', 1500);
+  assert.equal(await exits(page), 0, 'a long press on the clock does nothing now');
+  await context.close();
 });
-
-for (const [w, h] of [[412, 915], [360, 800], [915, 412]]) {
-  test(`the exit hint fits beside the dots and buttons at ${w}x${h}`, async () => {
-    const { page, context } = await open({ width: w, height: h, init: hostStub });
-    const r = await page.evaluate(() => {
-      const hint = document.getElementById('exitHint'), dots = document.querySelector('.dots').getBoundingClientRect();
-      const b = hint.getBoundingClientRect();
-      return { overlapsDots: b.right > dots.left + 1, clipped: hint.scrollWidth > hint.clientWidth + 1, height: b.height, left: b.left };
-    });
-    assert.equal(r.overlapsDots, false, 'does not run into the page dots');
-    assert.equal(r.clipped, false);
-    assert.ok(r.height < 40, `at most two short lines (${r.height}px)`);
-    await context.close();
-  });
-}
 
 // ---- the week cards: text must sit exactly in the middle ----
 for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800], [700, 1000]]) {
@@ -1448,19 +1417,6 @@ test('sliding the finger well away does cancel it', async () => {
   await context.close();
 });
 
-test('a normal wobble of the finger does not cancel holding the clock to leave', async () => {
-  const { page, context } = await open({ time: new Date(2026, 10, 17, 12, 15), init: hostStub, touch: true });
-  const f = await finger(page, context);
-  const [x, y] = await elementCentre(page, '.tile.clock');
-  await f.down(x, y);
-  await page.clock.runFor(300);
-  await f.move(x + 5, y + 14);
-  await page.clock.runFor(600);
-  assert.equal(await exits(page), 1, 'still asked the app to leave');
-  await f.up();
-  await context.close();
-});
-
 for (const hour12 of [false, true]) {
   test(`the alarm time fits its tile at every size (${hour12 ? '12' : '24'}-hour)`, async () => {
     for (const [w, h] of [[915, 412], [800, 360], [412, 915], [360, 800]]) {
@@ -1528,4 +1484,47 @@ test('Charging rapidly and the charger line fit the battery tile at every size',
     assert.equal(r.inside, true, `text inside its tile at ${w}x${h}`);
     await context.close();
   }
+});
+
+// ---- swipe up from the bottom to leave, like closing an app ----
+for (const [w, h] of [[915, 412], [412, 915]]) {
+  test(`swiping up from the lower part of the screen leaves the dock at ${w}x${h}`, async () => {
+    const { page, context } = await open({ width: w, height: h, time: DAY, init: hostStub, touch: true });
+    const f = await finger(page, context);
+    const x = Math.round(w / 2);
+    await f.down(x, h - 10);
+    await f.move(x, h - 60);
+    assert.equal(await exits(page), 0, 'a short drag is not enough');
+    await f.move(x + 8, h - 140);
+    await f.up();
+    assert.equal(await exits(page), 1, 'a long upward swipe leaves');
+    await context.close();
+  });
+
+  test(`other gestures do not leave the dock at ${w}x${h}`, async () => {
+    const { page, context } = await open({ width: w, height: h, time: DAY, init: hostStub, touch: true });
+    const f = await finger(page, context);
+    // starting high on the screen
+    await f.down(Math.round(w / 2), Math.round(h * 0.3)); await f.move(Math.round(w / 2), 5); await f.up();
+    // a sideways swipe from the bottom
+    await f.down(Math.round(w * 0.8), h - 20); await f.move(Math.round(w * 0.2), h - 60); await f.up();
+    // a downward drag
+    await f.down(Math.round(w / 2), h - 150); await f.move(Math.round(w / 2), h - 10); await f.up();
+    assert.equal(await exits(page), 0);
+    await context.close();
+  });
+}
+
+test('swiping up does nothing in a plain browser, and not while Settings is open', async () => {
+  let o = await open({ time: DAY, touch: true });
+  let f = await finger(o.page, o.context);
+  await f.down(450, 400); await f.move(450, 200); await f.up();
+  assert.equal(await o.page.isVisible('#settingsBtn'), true, 'nothing happened');
+  await o.context.close();
+  o = await open({ time: DAY, init: hostStub, touch: true });
+  await o.page.click('#settingsBtn');
+  f = await finger(o.page, o.context);
+  await f.down(450, 400); await f.move(450, 200); await f.up();
+  assert.equal(await exits(o.page), 0, 'Settings is open');
+  await o.context.close();
 });

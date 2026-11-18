@@ -12,7 +12,7 @@ Built for the Nothing Phone (1), and it should run on any Android 8 or newer pho
 
 ## Open it any time
 
-Open **Charge Dock** and tap **Open dock**. It works whether or not the phone is charging. Hold the clock to leave.
+Open **Charge Dock** and tap **Open dock**. It works whether or not the phone is charging. Swipe up from the bottom to leave.
 
 ## Set it up to start when charging (once)
 
